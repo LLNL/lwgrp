@@ -120,12 +120,13 @@ int main (int argc, char* argv[])
   MPI_Finalize();
   return 0;
 
-
+  int tag1 = 0;
+  int tag2 = 1;
 
   color = 0;
   key = rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, tag1, tag2, &size, members);
   end = MPI_Wtime();
   print_members(1, rank, size, members);
   if (rank == 0) {
@@ -134,7 +135,7 @@ int main (int argc, char* argv[])
 
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
   start = MPI_Wtime();
-  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, &newcomm);
+  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
   print_comm(2, rank, newcomm);
   if (newcomm != MPI_COMM_NULL) {
@@ -160,7 +161,7 @@ int main (int argc, char* argv[])
   color = 0;
   key = -rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, tag1, tag2, &size, members);
   end = MPI_Wtime();
   print_members(3, rank, size, members);
   if (rank == 0) {
@@ -169,7 +170,7 @@ int main (int argc, char* argv[])
 
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
   start = MPI_Wtime();
-  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, &newcomm);
+  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
   print_comm(4, rank, newcomm);
   if (newcomm != MPI_COMM_NULL) {
@@ -194,7 +195,7 @@ int main (int argc, char* argv[])
   color = rank;
   key = -rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, tag1, tag2, &size, members);
   end = MPI_Wtime();
   print_members(5, rank, size, members);
   if (rank == 0) {
@@ -203,7 +204,7 @@ int main (int argc, char* argv[])
 
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
   start = MPI_Wtime();
-  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, &newcomm);
+  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
   print_comm(6, rank, newcomm);
   if (newcomm != MPI_COMM_NULL) {
@@ -228,7 +229,7 @@ int main (int argc, char* argv[])
   color = (rank % 2) ? 0 : MPI_UNDEFINED;
   key = -rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, tag1, tag2, &size, members);
   end = MPI_Wtime();
   print_members(7, rank, size, members);
   if (rank == 0) {
@@ -237,7 +238,7 @@ int main (int argc, char* argv[])
 
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
   start = MPI_Wtime();
-  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, &newcomm);
+  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
   print_comm(8, rank, newcomm);
   if (newcomm != MPI_COMM_NULL) {
@@ -262,7 +263,7 @@ int main (int argc, char* argv[])
   color = rank % 2;
   key = rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, tag1, tag2, &size, members);
   end = MPI_Wtime();
   print_members(9, rank, size, members);
   if (rank == 0) {
@@ -271,7 +272,7 @@ int main (int argc, char* argv[])
 
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
   start = MPI_Wtime();
-  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, &newcomm);
+  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
   print_comm(10, rank, newcomm);
   if (newcomm != MPI_COMM_NULL) {
@@ -296,7 +297,7 @@ int main (int argc, char* argv[])
   color = rank / 4;
   key = rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, tag1, tag2, &size, members);
   end = MPI_Wtime();
   print_members(11, rank, size, members);
   if (rank == 0) {
@@ -305,7 +306,7 @@ int main (int argc, char* argv[])
 
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
   start = MPI_Wtime();
-  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, &newcomm);
+  lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
   print_comm(12, rank, newcomm);
   if (newcomm != MPI_COMM_NULL) {

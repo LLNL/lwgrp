@@ -216,18 +216,18 @@ int lwgrp_ring_alltoallv_linear(
     /* receive data from src */
     char* recv_ptr = (char*)recvbuf + recvdispls[src] * recvextent;
     int recv_count = recvcounts[src];
-    MPI_Irecv(recv_ptr, recv_count, datatype, src, 0, comm, &request[0]);
+    MPI_Irecv(recv_ptr, recv_count, datatype, src, LWGRP_MSG_TAG_0, comm, &request[0]);
 
     /* send data to dst */
     char* send_ptr = (char*)sendbuf + senddispls[dst] * sendextent;
     int send_count = sendcounts[dst];
-    MPI_Isend(send_ptr, send_count, datatype, dst, 0, comm, &request[1]);
+    MPI_Isend(send_ptr, send_count, datatype, dst, LWGRP_MSG_TAG_0, comm, &request[1]);
 
     /* exchange addresses, send our current src to our current dst, etc */
-    MPI_Irecv(&src_next, 1, MPI_INT, src, 0, comm, &request[2]);
-    MPI_Irecv(&dst_next, 1, MPI_INT, dst, 0, comm, &request[3]);
-    MPI_Isend(&src,      1, MPI_INT, dst, 0, comm, &request[4]);
-    MPI_Isend(&dst,      1, MPI_INT, src, 0, comm, &request[5]);
+    MPI_Irecv(&src_next, 1, MPI_INT, src, LWGRP_MSG_TAG_0, comm, &request[2]);
+    MPI_Irecv(&dst_next, 1, MPI_INT, dst, LWGRP_MSG_TAG_0, comm, &request[3]);
+    MPI_Isend(&src,      1, MPI_INT, dst, LWGRP_MSG_TAG_0, comm, &request[4]);
+    MPI_Isend(&dst,      1, MPI_INT, src, LWGRP_MSG_TAG_0, comm, &request[5]);
 
     /* wait for communication to complete */
     MPI_Waitall(6, request, status);

@@ -14,6 +14,7 @@
  * 2^d hops away to the left and right sides O(log N) memory. */
 
 int LWGRP_MSG_TAG_0 = 0;
+#define LWGRP_FAILURE (! LWGRP_SUCCESS)
 
 /* -----------------------------------------------------
  * Functions that operate on a chain
@@ -98,7 +99,7 @@ int lwgrp_chain_build_from_vals(MPI_Comm comm, int left, int right, int size, in
 {
   /* check that we got a valid pointer */
   if (group == NULL) {
-    return LWGRP_FAILURE:
+    return LWGRP_FAILURE;
   }
 
   /* if size is not positive, set the group to the empty group */

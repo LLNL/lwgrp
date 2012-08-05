@@ -336,4 +336,21 @@ int lwgrp_logring_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_D
   lwgrp_chain_free(&chain);
   return rc;
 }
+
+int lwgrp_logring_reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype type, MPI_Op op, int root, const lwgrp_chain* group, const lwgrp_logring* list)
+{
+  int rc = 0;
+
+  lwgrp_chain chain;
+  lwgrp_chain_build_from_ring(group, &chain);
+
+  lwgrp_logchain logchain;
+  lwgrp_logchain_build_from_logring(group, list, &logchain);
+
+  rc = lwgrp_logchain_reduce(sendbuf, recvbuf, count, type, op, root, &chain, &logchain);
+
+  lwgrp_logchain_free(&logchain);
+  lwgrp_chain_free(&chain);
+  return rc;
+}
 #endif

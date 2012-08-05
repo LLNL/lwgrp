@@ -20,13 +20,28 @@ extern "C" {
  * It should be big enough to store ranks from largest group after split,
  * so to be safe, it should be as large as size(comm). */
 
-int lwgrp_comm_split_members(MPI_Comm comm, int color, int key, int* size, int members[]);
+int lwgrp_comm_split_members(
+  MPI_Comm comm,
+  int color,
+  int key,
+  int tag1,
+  int tag2,
+  int* size,
+  int members[]
+);
 
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
 /* same as above but returns a newly created communicator via MPI_Comm_create,
  * can only use in MPI-2.2 and later and still not useful unless MPI_COMM_CREATE
  * is scalable */
-int lwgrp_comm_split_create(MPI_Comm comm, int color, int key, MPI_Comm* newcomm);
+int lwgrp_comm_split_create(
+  MPI_Comm comm,
+  int color,
+  int key,
+  int tag1,
+  int tag2,
+  MPI_Comm* newcomm
+);
 #endif
 
 #ifdef __cplusplus

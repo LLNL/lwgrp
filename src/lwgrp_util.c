@@ -1,4 +1,5 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include "mpi.h"
 #include "lwgrp.h"
 
@@ -119,7 +120,7 @@ int lwgrp_largest_pow2_log2_lte(int ranks, int* outpow2, int* outlog2)
   return LWGRP_SUCCESS;
 }
 
-/* find largest power of two that fits within group_ranks */
+/* find largest power of two strictly less than ranks */
 int lwgrp_largest_pow2_log2_lessthan(int ranks, int* outpow2, int* outlog2)
 {
   int pow2, log2;

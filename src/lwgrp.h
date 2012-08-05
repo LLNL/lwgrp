@@ -122,17 +122,20 @@ int lwgrp_logring_free(lwgrp_logring* list);
 
 /* given a specified number of bins, an index into those bins, and a
  * input group, create and return a new group consisting of all ranks
- * belonging to the same bin, my_bin should be in range [0,num_bins-1]
+ * belonging to the same bin, my_bin should be in range [0,bins-1]
  * if my_bin < 0, then the empty group is returned */
 int lwgrp_chain_split_bin(
-  int num_bins,
-  int my_bin,
-  const lwgrp_chain* in,
-  lwgrp_chain* out
+  int bins,                /* IN  - number of bins (non-negative integer) */
+  int bin,                 /* IN  - bin to which calling proc belongs (integer) */
+  const lwgrp_chain* in,   /* IN  - group to be split (handle) */
+  lwgrp_chain* out         /* OUT - group containing all procs in same
+                            *       bin as calling process (handle) */
 );
 
 /* execute a barrier over the chain */
-int lwgrp_chain_barrier(const lwgrp_chain* group);
+int lwgrp_chain_barrier(
+  const lwgrp_chain* group /* IN  - group (handle) */
+);
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
 int lwgrp_chain_double_exscan(
@@ -181,6 +184,18 @@ int lwgrp_logchain_allreduce(
   const lwgrp_chain* group,  /* IN  - group (handle) */
   const lwgrp_logchain* list /* IN  - list (handle) */
 );
+
+int lwgrp_logchain_reduce(
+  const void* inbuf,         /* IN  - input buffer for reduction */
+  void* outbuf,              /* OUT - output buffer for reduction */
+  int count,                 /* IN  - number of elements in buffer
+                              *       (non-negative integer) */
+  MPI_Datatype type,         /* IN  - buffer datatype (handle) */
+  MPI_Op op,                 /* IN  - reduction operation (handle) */
+  int root,                  /* IN  - rank of root process (integer) */
+  const lwgrp_chain* group,  /* IN  - group (handle) */
+  const lwgrp_logchain* list /* IN  - list (handle) */
+);
 #endif
 
 /* ---------------------------------
@@ -189,13 +204,14 @@ int lwgrp_logchain_allreduce(
 
 /* given a specified number of bins, an index into those bins, and a
  * input group, create and return a new group consisting of all ranks
- * belonging to the same bin, my_bin should be in range [0,num_bins-1]
+ * belonging to the same bin, my_bin should be in range [0,bins-1]
  * if my_bin < 0, then the empty group is returned */
 int lwgrp_ring_split_bin(
-  int num_bins,
-  int my_bin,
-  const lwgrp_ring* in,
-  lwgrp_ring* out
+  int bins,               /* IN  - number of bins (non-negative integer) */
+  int bin,                /* IN  - bin to which calling proc belongs (integer) */
+  const lwgrp_ring* in,   /* IN  - group to be split (handle) */
+  lwgrp_ring* out         /* OUT - group containing all procs in same
+                           *       bin as calling process (handle) */
 );
 
 int lwgrp_ring_alltoallv_linear(
@@ -229,7 +245,7 @@ int lwgrp_logring_bcast(
   void* buffer,             /* IN  - send buffer (on root), receive buffer otherwise */
   int count,                /* IN  - number of elements in buffer (non-negative integer) */
   MPI_Datatype datatype,    /* IN  - data type of buffer elements (handle) */
-  int root,                 /* IN  - rank of root */
+  int root,                 /* IN  - rank of root process (integer) */
   const lwgrp_ring* group,  /* IN  - group (handle) */
   const lwgrp_logring* list /* IN  - list (handle) */
 );
@@ -289,12 +305,23 @@ int lwgrp_logring_allreduce(
   int count,                /* IN  - number of elements in buffer (non-negative integer) */
   MPI_Datatype type,        /* IN  - buffer datatype (handle) */
   MPI_Op op,                /* IN  - reduction operation (handle) */
-  const lwgrp_chain* group, /* IN  - group (handle) */
+  const lwgrp_ring* group,  /* IN  - group (handle) */
   const lwgrp_logring* list /* IN  - list (handle) */
+);
+
+int lwgrp_logring_reduce(
+  const void* inbuf,         /* IN  - input buffer for reduction */
+  void* outbuf,              /* OUT - output buffer for reduction */
+  int count,                 /* IN  - number of elements in buffer (non-negative integer) */
+  MPI_Datatype type,         /* IN  - buffer datatype (handle) */
+  MPI_Op op,                 /* IN  - reduction operation (handle) */
+  int root,                  /* IN  - rank of root process (integer) */
+  const lwgrp_ring* group,   /* IN  - group (handle) */
+  const lwgrp_logring* list  /* IN  - list (handle) */
 );
 #endif
 
 #ifdef __cplusplus
 }
 #endif
-#endif
+#endif /* _LWGRP_H */

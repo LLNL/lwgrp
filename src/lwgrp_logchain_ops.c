@@ -228,4 +228,44 @@ int lwgrp_logchain_allreduce_pow2(void* resultbuf, void* scratchbuf, int count, 
 
   return LWGRP_SUCCESS;
 }
+
+int lwgrp_logchain_reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype type, MPI_Op op, int root, const lwgrp_chain* group, const lwgrp_logchain* list)
+{
+  /* TODO: actually implement a reduce rather than borrowing allreduce */
+
+  /* get true extent of datatype */
+  MPI_Aint lb, extent;
+  MPI_Type_get_true_extent(type, &lb, &extent);
+
+  /* allocate buffer to receive partial results */
+  void* scratch = NULL;
+  size_t scratch_size = count * extent;
+  if (scratch_size > 0) {
+    scratch = (void*) malloc(scratch_size);
+    if (scratch == NULL) {
+      /* TODO: fail */
+    }
+  }
+
+  /* if we're the root, use the recvbuf,
+   * otherwise use the temporary buffer */
+  char* tempbuf = NULL;
+  int rank = group->group_rank;
+  if (rank == root) {
+    tempbuf = (char*) recvbuf;
+  } else {
+    /* adjust for non-zero lower bounds */
+    if (scratch != NULL) {
+      tempbuf = (char*)scratch - lb;
+    }
+  }
+
+  /* execute the allreduce */
+  lwgrp_logchain_allreduce(sendbuf, tempbuf, count, type, op, group, list);
+
+  /* free our scratch space */
+  lwgrp_free(&scratch);
+
+  return LWGRP_SUCCESS; 
+}
 #endif

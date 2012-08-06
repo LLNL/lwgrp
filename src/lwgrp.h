@@ -1,3 +1,12 @@
+/* Copyright (c) 2012, Lawrence Livermore National Security, LLC.
+ * Produced at the Lawrence Livermore National Laboratory.
+ * Written by Adam Moody <moody20@llnl.gov>.
+ * LLNL-CODE-568372.
+ * All rights reserved.
+ * This file is part of the LWGRP library.
+ * For details, see https://github.com/hpc/lwgrp
+ * Please also read this file: LICENSE.TXT. */
+
 #ifndef _LWGRP_H
 #define _LWGRP_H
 

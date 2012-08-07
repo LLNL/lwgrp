@@ -102,9 +102,16 @@ int lwgrp_chain_build_from_comm(MPI_Comm comm, lwgrp_chain* group)
   return LWGRP_SUCCESS;
 }
 
-/* enables a library to construct a group with just left/right/size/rank values,
- * useful for libs that create their own groups via scans */
-int lwgrp_chain_build_from_vals(MPI_Comm comm, int left, int right, int size, int rank, lwgrp_chain* group)
+/* enables a library to construct a group with just
+ * left/right/size/rank values, useful for libs that create their own
+ * groups via scans */
+int lwgrp_chain_build_from_vals(
+  MPI_Comm comm,
+  int left,
+  int right,
+  int size,
+  int rank,
+  lwgrp_chain* group)
 {
   /* check that we got a valid pointer */
   if (group == NULL) {
@@ -133,7 +140,9 @@ int lwgrp_chain_build_from_vals(MPI_Comm comm, int left, int right, int size, in
 }
 
 /* build a group from a communicator (we do this a lot) */
-int lwgrp_chain_build_from_ring(const lwgrp_ring* ring, lwgrp_chain* group)
+int lwgrp_chain_build_from_ring(
+  const lwgrp_ring* ring,
+  lwgrp_chain* group)
 {
   /* they are made from the same struct, so just do a memcpy */
   lwgrp_chain_copy((const lwgrp_chain*)ring, group);
@@ -212,7 +221,66 @@ int lwgrp_ring_build_from_comm(MPI_Comm comm, lwgrp_ring* group)
   return LWGRP_SUCCESS;
 }
 
-int lwgrp_ring_build_from_chain(const lwgrp_chain* chain, lwgrp_ring* ring)
+/* build a group from a list of ranks */
+int lwgrp_ring_build_from_list(MPI_Comm comm, int group_size, const int group_list[], lwgrp_ring* group)
+{
+  if (comm != MPI_COMM_NULL && group_size > 0) {
+    /* get our rank and the size of our communicator */
+    int rank, ranks;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &ranks);
+
+    /* search until we find our rank within the group_list */
+    int i;
+    int group_rank = -1;
+    for (i = 0; i < group_size; i++) {
+      if (group_list[i] == rank) {
+        group_rank = i;
+        break;
+      }
+    }
+
+    if (group_rank < 0) {
+      /* ERROR: rank not found in list */
+    }
+
+    /* identify our left neighbor */
+    int left;
+    if (group_rank > 0) {
+      /* pick rank which is one less */
+      left = group_list[group_rank-1];
+    } else {
+      /* wrap around to right end */
+      left = group_list[group_size-1];
+    }
+
+    /* identify our right neighbor */
+    int right;
+    if (group_rank < group_size-1) {
+      /* pick rank which is one more */
+      right = group_list[group_rank+1];
+    } else {
+      /* wrap around to left end */
+      right = group_list[0];
+    }
+
+    /* set output parameters */
+    group->comm       = comm;
+    group->comm_rank  = rank;
+    group->comm_left  = left;
+    group->comm_right = right;
+    group->group_rank = group_rank;
+    group->group_size = group_size;
+  } else {
+    lwgrp_ring_set_null(group);
+  }
+
+  return LWGRP_SUCCESS;
+}
+
+int lwgrp_ring_build_from_chain(
+  const lwgrp_chain* chain,
+  lwgrp_ring* ring)
 {
   /* first rank needs to know address of last rank, and vice versa,
    * so we execute a double broadcast to get these values */
@@ -235,30 +303,46 @@ int lwgrp_ring_build_from_chain(const lwgrp_chain* chain, lwgrp_ring* ring)
   int left_rank  = chain->comm_left;
   int right_rank = chain->comm_right;
   while (left_rank != MPI_PROC_NULL || right_rank != MPI_PROC_NULL) {
-    /* if we have a left partner, send him our partial result and our rightmost rank,
-     * recv his partial result and his leftmost rank */
+    /* if we have a left partner, send him our partial result and
+     * our rightmost rank, recv his partial result and his leftmost
+     * rank */
     int k = 0;
     if (left_rank != MPI_PROC_NULL) {
       /* receive right-going data from the left */
-      MPI_Irecv(recv_left, 2, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        recv_left, 2, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
 
-      /* inform rank to our left of the rank on our right, and send him our partial result */
+      /* inform rank to our left of the rank on our right, and send
+       * him our partial result */
       send_left[0] = right_rank;
-      MPI_Isend(send_left, 2, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        send_left, 2, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
     }
 
-    /* if we have a right partner, send him our partial result and our leftmost rank,
-     * receive his partial result and his rightmost rank */
+    /* if we have a right partner, send him our partial result and
+     * our leftmost rank, receive his partial result and his rightmost
+     * rank */
     if (right_rank != MPI_PROC_NULL) {
       /* receive left-going data from the right */
-      MPI_Irecv(recv_right, 2, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        recv_right, 2, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
 
-      /* inform rank to our right of the rank on our left, and send him our partial result */
+      /* inform rank to our right of the rank on our left, and send
+       * him our partial result */
       send_right[0] = left_rank;
-      MPI_Isend(send_right, 2, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        send_right, 2, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
     }
 
@@ -269,7 +353,8 @@ int lwgrp_ring_build_from_chain(const lwgrp_chain* chain, lwgrp_ring* ring)
 
     /* if we have a left partner, reduce his data */
     if (left_rank != MPI_PROC_NULL) {
-      /* take the value we receive from the left, and forward it to the right */
+      /* take the value we receive from the left, and forward it to
+       * the right */
       send_right[1] = recv_left[1];
 
       /* get the next rank to send to on our left */
@@ -278,7 +363,8 @@ int lwgrp_ring_build_from_chain(const lwgrp_chain* chain, lwgrp_ring* ring)
 
     /* if we have a right partner, reduce his data */
     if (right_rank != MPI_PROC_NULL) {
-      /* take the value we receive from the right, and forward it to the left */
+      /* take the value we receive from the right, and forward it to
+       * the left */
       send_left[1] = recv_right[1];
 
       /* get the next rank to send to on our right */
@@ -294,8 +380,9 @@ int lwgrp_ring_build_from_chain(const lwgrp_chain* chain, lwgrp_ring* ring)
   ring->group_rank = chain->group_rank;
   ring->group_size = chain->group_size;
 
-  /* now form the ring by setting rank 0's left partner to be the last rank
-   * in the group and setting the last ranks's right partner to be rank 0 */
+  /* now form the ring by setting rank 0's left partner to be the
+   * last rank in the group and setting the last ranks's right
+   * partner to be rank 0 */
   if (ring->group_rank == 0) {
     ring->comm_left = send_left[1];
   }
@@ -356,10 +443,14 @@ static int lwgrp_logchain_init(int ranks, lwgrp_logchain* list)
   return 0;
 }
 
-/* given a group, build a list of neighbors that are 2^d away on our left and right sides */
-int lwgrp_logchain_build_from_chain(const lwgrp_chain* group, lwgrp_logchain* list)
+/* given a group, build a list of neighbors that are 2^d away on
+ * our left and right sides */
+int lwgrp_logchain_build_from_chain(
+  const lwgrp_chain* group,
+  lwgrp_logchain* list)
 {
-  /* get the communicator, our rank in the group, and the size of the group */
+  /* get the communicator, our rank in the group, and the size of
+   * the group */
   MPI_Comm comm = group->comm;
   int ranks     = group->group_size;
 
@@ -376,33 +467,47 @@ int lwgrp_logchain_build_from_chain(const lwgrp_chain* group, lwgrp_logchain* li
   while (left_rank != MPI_PROC_NULL || right_rank != MPI_PROC_NULL) {
     int k = 0;
 
-    /* if we have a left partner, send our rightmost rank to him and receive his leftmost rank */
+    /* if we have a left partner, send our rightmost rank to him and
+     * receive his leftmost rank */
     if (left_rank != MPI_PROC_NULL) {
       /* record our current left rank in our list */
       list->left_list[list->left_size] = left_rank;
       list->left_size++;
 
       /* receive next left rank from our current left rank */
-      MPI_Irecv(&recv_left_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        &recv_left_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
 
       /* send our rightmost rank to our left rank */
-      MPI_Isend(&right_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        &right_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
     }
 
-    /* if we have a right partner, send our leftmost rank to him and receive his rightmost rank */
+    /* if we have a right partner, send our leftmost rank to him and
+     * receive his rightmost rank */
     if (right_rank != MPI_PROC_NULL) {
       /* record our current right rank in our list */
       list->right_list[list->right_size] = right_rank;
       list->right_size++;
 
       /* receive next right rank from our current right rank */
-      MPI_Irecv(&recv_right_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        &recv_right_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
 
       /* send our leftmost rank to our right rank */
-      MPI_Isend(&left_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        &left_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
     }
 
@@ -429,8 +534,12 @@ int lwgrp_logchain_build_from_chain(const lwgrp_chain* group, lwgrp_logchain* li
   return 0;
 }
 
-/* given a group, build a list of neighbors that are 2^d away on our left and right sides */
-int lwgrp_logchain_build_from_logring(const lwgrp_ring* ring, const lwgrp_logring* logring, lwgrp_logchain* list)
+/* given a group, build a list of neighbors that are 2^d away on
+ * our left and right sides */
+int lwgrp_logchain_build_from_logring(
+  const lwgrp_ring* ring,
+  const lwgrp_logring* logring,
+  lwgrp_logchain* list)
 {
   /* get our rank and the number of ranks in our group */
   int rank  = ring->group_rank;
@@ -471,10 +580,12 @@ int lwgrp_logchain_build_from_logring(const lwgrp_ring* ring, const lwgrp_logrin
   return 0;
 }
 
-/* given a group, build a list of neighbors that are 2^d away on our left and right sides */
+/* given a group, build a list of neighbors that are 2^d away on
+ * our left and right sides */
 int lwgrp_logchain_build_from_comm(MPI_Comm comm, lwgrp_logchain* list)
 {
-  /* get the communicator, our rank in the group, and the size of the group */
+  /* get the communicator, our rank in the group, and the size of
+   * the group */
   int rank, ranks;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &ranks);
@@ -536,10 +647,14 @@ static int lwgrp_logring_init(int ranks, lwgrp_logring* list)
   return rc;
 }
 
-/* given a group, build a list of neighbors that are 2^d away on our left and right sides */
-int lwgrp_logring_build_from_ring(const lwgrp_ring* group, lwgrp_logring* list)
+/* given a group, build a list of neighbors that are 2^d away on
+ * our left and right sides */
+int lwgrp_logring_build_from_ring(
+  const lwgrp_ring* group,
+  lwgrp_logring* list)
 {
-  /* get the communicator, our rank in the group, and the size of the group */
+  /* get the communicator, our rank in the group, and the size of
+   * the group */
   MPI_Comm comm = group->comm;
   int ranks     = group->group_size;
 
@@ -565,13 +680,25 @@ int lwgrp_logring_build_from_ring(const lwgrp_ring* group, lwgrp_logring* list)
 
     /* receive next left rank from current left rank,
      * and receive next right rank from current right rank */
-    MPI_Irecv(&recv_left_rank,  1, MPI_INT, left_rank,  LWGRP_MSG_TAG_0, comm, &request[0]);
-    MPI_Irecv(&recv_right_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[1]);
+    MPI_Irecv(
+      &recv_left_rank,  1, MPI_INT, left_rank,  LWGRP_MSG_TAG_0,
+      comm, &request[0]
+    );
+    MPI_Irecv(
+      &recv_right_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+      comm, &request[1]
+    );
 
     /* send our current right rank to our left rank,
      * and send our current left rank to our right rank */
-    MPI_Isend(&right_rank, 1, MPI_INT, left_rank,  LWGRP_MSG_TAG_0, comm, &request[2]);
-    MPI_Isend(&left_rank,  1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[3]);
+    MPI_Isend(
+      &right_rank, 1, MPI_INT, left_rank,  LWGRP_MSG_TAG_0,
+      comm, &request[2]
+    );
+    MPI_Isend(
+      &left_rank,  1, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+      comm, &request[3]
+    );
 
     /* wait for communication to complete */
     MPI_Waitall(4, request, status);
@@ -591,10 +718,12 @@ int lwgrp_logring_build_from_ring(const lwgrp_ring* group, lwgrp_logring* list)
   return LWGRP_SUCCESS;
 }
 
-/* given a group, build a list of neighbors that are 2^d away on our left and right sides */
+/* given a group, build a list of neighbors that are 2^d away on
+ * our left and right sides */
 int lwgrp_logring_build_from_comm(MPI_Comm comm, lwgrp_logring* list)
 {
-  /* get the communicator, our rank in the group, and the size of the group */
+  /* get the communicator, our rank in the group, and the size of
+   * the group */
   int rank, ranks;
   MPI_Comm_rank(comm, &rank);
   MPI_Comm_size(comm, &ranks);
@@ -614,6 +743,65 @@ int lwgrp_logring_build_from_comm(MPI_Comm comm, lwgrp_logring* list)
      * and increment our right list size */
     int right = (rank + count) % ranks;
     list->right_list[list->right_size] = right;
+    list->right_size++;
+
+    count <<= 1;
+  }
+
+  /* end each list with MPI_PROC_NULL */
+  list->left_list[list->left_size]   = MPI_PROC_NULL;
+  list->right_list[list->right_size] = MPI_PROC_NULL;
+  list->left_size++;
+  list->right_size++;
+
+  return LWGRP_SUCCESS;
+}
+
+/* build a group from a list of ranks */
+int lwgrp_logring_build_from_list(MPI_Comm comm, int group_size, const int group_list[], lwgrp_logring* list)
+{
+  /* allocate ceil(log(ranks)) memory for left and right lists */
+  lwgrp_logring_init(group_size, list);
+
+  /* get our rank and the size of our communicator */
+  int rank, ranks;
+  MPI_Comm_rank(comm, &rank);
+  MPI_Comm_size(comm, &ranks);
+
+  /* search until we find our rank within the group_list */
+  int i;
+  int group_rank = -1;
+  for (i = 0; i < group_size; i++) {
+    if (group_list[i] == rank) {
+      group_rank = i;
+      break;
+    }
+  }
+
+  if (group_rank < 0) {
+    /* ERROR: rank not found in list */
+  }
+
+  int count = 1;
+  while (count < group_size) {
+    /* set our next left neighbor,
+     * and increment our left list size */
+    int left_index = group_rank - count;
+    if (left_index < 0) {
+      left_index += group_size;
+    }
+    int left_rank = group_list[left_index];
+    list->left_list[list->left_size] = left_rank;
+    list->left_size++;
+    
+    /* set our next right neighbor,
+     * and increment our right list size */
+    int right_index = group_rank + count;
+    if (right_index >= group_size) {
+      right_index -= group_size;
+    }
+    int right_rank = group_list[right_index];
+    list->right_list[list->right_size] = right_rank;
     list->right_size++;
 
     count <<= 1;

@@ -106,6 +106,7 @@ int lwgrp_ring_set_null(lwgrp_ring* ring);
 int lwgrp_ring_copy(const lwgrp_ring* in, lwgrp_ring* out);
 int lwgrp_ring_build_from_chain(const lwgrp_chain* chain, lwgrp_ring* ring);
 int lwgrp_ring_build_from_comm(MPI_Comm comm, lwgrp_ring* ring);
+int lwgrp_ring_build_from_list(MPI_Comm comm, int size, const int ranklist[], lwgrp_ring* ring);
 int lwgrp_ring_free(lwgrp_ring* ring);
 
 /* ---------------------------------
@@ -123,6 +124,7 @@ int lwgrp_logchain_free(lwgrp_logchain* list);
 
 int lwgrp_logring_build_from_ring(const lwgrp_ring* ring, lwgrp_logring* list);
 int lwgrp_logring_build_from_comm(MPI_Comm comm, lwgrp_logring* list);
+int lwgrp_logring_build_from_list(MPI_Comm, int size, const int ranklist[], lwgrp_logring* list);
 int lwgrp_logring_free(lwgrp_logring* list);
 
 /* ---------------------------------

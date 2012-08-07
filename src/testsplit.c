@@ -94,7 +94,9 @@ int main (int argc, char* argv[])
   lwgrp_logring_alltoall_brucks(inbuf, outbuf, 1, MPI_INT, &group, &logring);
 
   int sum = -1;
+#if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
   lwgrp_logring_allreduce(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
+#endif
 
 #if 0
   #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2

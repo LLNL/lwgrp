@@ -95,7 +95,7 @@ int lwgrp_chain_set_null(lwgrp_chain* chain);
 int lwgrp_chain_copy(const lwgrp_chain* in, lwgrp_chain* out);
 int lwgrp_chain_build_from_ring(const lwgrp_ring* ring, lwgrp_chain* chain);
 int lwgrp_chain_build_from_comm(MPI_Comm comm, lwgrp_chain* chain);
-//int lwgrp_chain_build_from_vals(MPI_Comm comm, int left, int right, int size, int rank, lwgrp_chain* chain);
+int lwgrp_chain_build_from_vals(MPI_Comm comm, int left, int right, int size, int rank, lwgrp_chain* chain);
 int lwgrp_chain_free(lwgrp_chain* chain);
 
 /* ---------------------------------

@@ -398,7 +398,7 @@ int lwgrp_chain_double_exscan(
 
   /* allocate space to hold temporaries */
   char* scratch = NULL;
-  size_t scratch_size = extent * 4;
+  size_t scratch_size = 4 * count * extent;
   if (scratch_size > 0) {
     scratch = (char*) malloc(scratch_size);
   }
@@ -409,22 +409,22 @@ int lwgrp_chain_double_exscan(
   char* temprecvleft  = NULL;
   char* temprecvright = NULL;
   if (scratch_size > 0) {
-    tempsendleft  = scratch + 0 * extent - lb;
-    tempsendright = scratch + 1 * extent - lb;
-    temprecvleft  = scratch + 2 * extent - lb;
-    temprecvright = scratch + 3 * extent - lb;
+    tempsendleft  = scratch + 0 * count * extent - lb;
+    tempsendright = scratch + 1 * count * extent - lb;
+    temprecvleft  = scratch + 2 * count * extent - lb;
+    temprecvright = scratch + 3 * count * extent - lb;
   }
 
   /* intialize send buffers */
   if (sendleft != MPI_IN_PLACE) {
-    lwgrp_memcpy(tempsendleft, sendleft, count, type, rank, comm);
+    lwgrp_memcpy(tempsendleft, sendleft, count, type, comm_rank, comm);
   } else {
-    lwgrp_memcpy(tempsendleft, recvleft, count, type, rank, comm);
+    lwgrp_memcpy(tempsendleft, recvleft, count, type, comm_rank, comm);
   }
   if (sendright != MPI_IN_PLACE) {
-    lwgrp_memcpy(tempsendright, sendright, count, type, rank, comm);
+    lwgrp_memcpy(tempsendright, sendright, count, type, comm_rank, comm);
   } else {
-    lwgrp_memcpy(tempsendright, recvright, count, type, rank, comm);
+    lwgrp_memcpy(tempsendright, recvright, count, type, comm_rank, comm);
   }
 
   /* execute double, exclusive scan,
@@ -480,7 +480,7 @@ int lwgrp_chain_double_exscan(
       if (recvleft_initialized) {
         MPI_Reduce_local(temprecvleft, recvleft, count, type, op);
       } else {
-        lwgrp_memcpy(recvleft, temprecvleft, count, type, rank, comm);
+        lwgrp_memcpy(recvleft, temprecvleft, count, type, comm_rank, comm);
         recvleft_initialized = 1;
       }
     }
@@ -494,7 +494,7 @@ int lwgrp_chain_double_exscan(
       if (recvright_initialized) {
         MPI_Reduce_local(temprecvright, recvright, count, type, op);
       } else {
-        lwgrp_memcpy(recvright, temprecvright, count, type, rank, comm);
+        lwgrp_memcpy(recvright, temprecvright, count, type, comm_rank, comm);
         recvright_initialized = 1;
       }
     }

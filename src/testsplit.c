@@ -96,6 +96,8 @@ int main (int argc, char* argv[])
   int sum = -1;
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
   lwgrp_logring_allreduce(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
+  lwgrp_logring_scan(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
+  lwgrp_logring_exscan(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
 #endif
 
 #if 0

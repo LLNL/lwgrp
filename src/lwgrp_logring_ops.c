@@ -316,12 +316,20 @@ int lwgrp_logring_alltoallv_linear(
 }
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+
 int lwgrp_logring_double_exscan(
-  const void* sendleft, void* recvright, const void* sendright, void* recvleft,
-  int count, MPI_Datatype type, MPI_Op op, const lwgrp_ring* group, const lwgrp_logring* list)
+  const void* sendleft,
+  void* recvright,
+  const void* sendright,
+  void* recvleft,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_ring* group,
+  const lwgrp_logring* list)
 {
   /* convert ring to chain and call chain's double exscan function */
-  int rc = 0;
+  int rc = LWGRP_SUCCESS;
   lwgrp_chain chain;
   lwgrp_chain_build_from_ring(group, &chain);
   rc = lwgrp_chain_double_exscan(sendleft, recvright, sendright, recvleft, count, type, op, &chain);
@@ -329,9 +337,16 @@ int lwgrp_logring_double_exscan(
   return rc;
 }
 
-int lwgrp_logring_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype type, MPI_Op op, const lwgrp_chain* group, const lwgrp_logring* list)
+int lwgrp_logring_allreduce(
+  const void* sendbuf,
+  void* recvbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group,
+  const lwgrp_logring* list)
 {
-  int rc = 0;
+  int rc = LWGRP_SUCCESS;
 
   lwgrp_chain chain;
   lwgrp_chain_build_from_ring(group, &chain);
@@ -346,9 +361,17 @@ int lwgrp_logring_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_D
   return rc;
 }
 
-int lwgrp_logring_reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype type, MPI_Op op, int root, const lwgrp_chain* group, const lwgrp_logring* list)
+int lwgrp_logring_reduce(
+  const void* sendbuf,
+  void* recvbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  int root,
+  const lwgrp_chain* group,
+  const lwgrp_logring* list)
 {
-  int rc = 0;
+  int rc = LWGRP_SUCCESS;
 
   lwgrp_chain chain;
   lwgrp_chain_build_from_ring(group, &chain);
@@ -362,4 +385,68 @@ int lwgrp_logring_reduce(const void* sendbuf, void* recvbuf, int count, MPI_Data
   lwgrp_chain_free(&chain);
   return rc;
 }
-#endif
+
+int lwgrp_logring_scan(
+  const void* inbuf,
+  void* outbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_ring* group,
+  const lwgrp_logring* list)
+{
+  int rc = LWGRP_SUCCESS;
+
+  /* delegate work to exscan */
+  rc = lwgrp_logring_exscan(inbuf, outbuf, count, type, op, group, list);
+
+  /* now add in our own result */
+  if (group->group_rank > 0) {
+    /* reduce our data into result */
+    MPI_Reduce_local((void*)inbuf, outbuf, count, type, op);
+  } else {
+    /* for rank 0, just copy data over */
+    int rank = group->comm_rank;
+    MPI_Comm comm = group->comm;
+    lwgrp_memcpy(outbuf, inbuf, count, type, rank, comm);
+  }
+
+  return rc;
+}
+
+int lwgrp_logring_exscan(
+  const void* inbuf,
+  void* outbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_ring* group,
+  const lwgrp_logring* list)
+{
+  int rc = LWGRP_SUCCESS;
+
+  /* allocate a temporary buffer to hold right-to-left result */
+  MPI_Aint true_lb, true_extent;
+  MPI_Type_get_true_extent(type, &true_lb, &true_extent);
+  void* scratch = NULL;
+  size_t scratch_size = count * true_extent;
+  if (scratch_size > 0) {
+    scratch = malloc(scratch_size);
+    if (scratch == 0) {
+      /* error */
+    }
+  }
+  char* tmpbuf = (char*)scratch - true_lb;
+
+  /* delegate work to double scan operation */
+  rc = lwgrp_logring_double_exscan(inbuf, tmpbuf, inbuf, outbuf, count, type, op, group, list);
+
+  /* free our temporary buffer */
+  if (scratch != NULL) {
+    free(scratch);
+  }
+
+  return rc;
+}
+
+#endif /* MPI >= v2.2 */

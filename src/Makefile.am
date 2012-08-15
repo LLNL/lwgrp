@@ -2,7 +2,8 @@ AM_CFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/config
 
 # headers to be installed in /include subdirectory
 include_HEADERS = \
-	lwgrp.h
+	lwgrp.h \
+	lwgrp_comm.h
 
 # headers that should not be installed into /include
 noinst_HEADERS = \
@@ -26,6 +27,7 @@ liblwgrp_la_SOURCES = \
   lwgrp_ring_ops.c \
   lwgrp_logchain_ops.c \
   lwgrp_logring_ops.c \
+  lwgrp_comm.c \
   lwgrp_comm_split.c
 liblwgrp_la_CFLAGS = $(INCLUDES)
 liblwgrp_la_LIBADD =

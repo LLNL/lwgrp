@@ -13,10 +13,16 @@
 #include "lwgrp.h"
 #include "lwgrp_internal.h"
 
-
-
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
-int lwgrp_logchain_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype type, MPI_Op op, const lwgrp_chain* group, const lwgrp_logchain* list)
+
+int lwgrp_logchain_allreduce(
+  const void* sendbuf,
+  void* recvbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group,
+  const lwgrp_logchain* list)
 {
   /* we implement a recursive doubling algorithm, but we're careful
    * to do this to support non-commutative ops, basically we find the
@@ -51,25 +57,8 @@ int lwgrp_logchain_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_
     );
   }
 
-  /* get true extent of datatype */
-  MPI_Aint lb, extent;
-  MPI_Type_get_true_extent(type, &lb, &extent);
-
   /* allocate buffer to receive partial results */
-  void* scratch = NULL;
-  size_t scratch_size = count * extent;
-  if (scratch_size > 0) {
-    scratch = (void*) malloc(scratch_size);
-    if (scratch == NULL) {
-      /* TODO: fail */
-    }
-  }
-
-  /* adjust for non-zero lower bounds */
-  char* tempbuf = NULL;
-  if (scratch != NULL) {
-    tempbuf = (char*)scratch - lb;
-  }
+  void* tempbuf = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
 
   /* find largest power of two that fits within group_ranks */
   int pow2, log2;
@@ -175,7 +164,7 @@ int lwgrp_logchain_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_
   }
 
   /* free our scratch space */
-  lwgrp_free(&scratch);
+  lwgrp_type_dtbuf_free(&tempbuf, type, __FILE__, __LINE__);
 
   return LWGRP_SUCCESS;
 }
@@ -183,7 +172,16 @@ int lwgrp_logchain_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_
 /* assumes the chain has an exact power of two number of members,
  * input should be in resultbuf and output will be stored there,
  * scratchbuf should be scratch space */
-int lwgrp_logchain_allreduce_pow2(void* resultbuf, void* scratchbuf, int count, MPI_Datatype type, MPI_Op op, const lwgrp_chain* group, const lwgrp_logchain* list, int left_index, int right_index)
+int lwgrp_logchain_allreduce_pow2(
+  void* resultbuf,
+  void* scratchbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group,
+  const lwgrp_logchain* list,
+  int left_index,
+  int right_index)
 {
   /* we use a recurisve doubling algorithm */
   MPI_Request request[4];
@@ -238,43 +236,38 @@ int lwgrp_logchain_allreduce_pow2(void* resultbuf, void* scratchbuf, int count, 
   return LWGRP_SUCCESS;
 }
 
-int lwgrp_logchain_reduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype type, MPI_Op op, int root, const lwgrp_chain* group, const lwgrp_logchain* list)
+int lwgrp_logchain_reduce(
+  const void* sendbuf,
+  void* recvbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  int root,
+  const lwgrp_chain* group,
+  const lwgrp_logchain* list)
 {
   /* TODO: actually implement a reduce rather than borrowing allreduce */
 
-  /* get true extent of datatype */
-  MPI_Aint lb, extent;
-  MPI_Type_get_true_extent(type, &lb, &extent);
-
   /* allocate buffer to receive partial results */
-  void* scratch = NULL;
-  size_t scratch_size = count * extent;
-  if (scratch_size > 0) {
-    scratch = (void*) malloc(scratch_size);
-    if (scratch == NULL) {
-      /* TODO: fail */
-    }
-  }
+  void* buf = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
 
   /* if we're the root, use the recvbuf,
    * otherwise use the temporary buffer */
-  char* tempbuf = NULL;
+  void* tempbuf = NULL;
   int rank = group->group_rank;
   if (rank == root) {
-    tempbuf = (char*) recvbuf;
+    tempbuf = recvbuf;
   } else {
-    /* adjust for non-zero lower bounds */
-    if (scratch != NULL) {
-      tempbuf = (char*)scratch - lb;
-    }
+    tempbuf = buf;
   }
 
   /* execute the allreduce */
   lwgrp_logchain_allreduce(sendbuf, tempbuf, count, type, op, group, list);
 
   /* free our scratch space */
-  lwgrp_free(&scratch);
+  lwgrp_type_dtbuf_free(&buf, type, __FILE__, __LINE__);
 
   return LWGRP_SUCCESS; 
 }
-#endif
+
+#endif /* MPI >= v2.2 */

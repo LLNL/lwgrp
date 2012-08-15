@@ -265,7 +265,29 @@ int lwgrp_logring_bcast(
   const lwgrp_logring* list /* IN  - list (handle) */
 );
 
+/* TODO: problem here in MPI is that intermediate ranks may use
+ * a different type for which we can't just append lots of datatypes
+ * in a temporary buffer */
+int lwgrp_logring_gather_brucks(
+  const void* sendbuf,      /* IN  - send buffer */
+  void* recvbuf,            /* OUT - recive buffer */
+  int num,                  /* IN  - number of elements on each process (non-negative integer) */
+  MPI_Datatype datatype,    /* IN  - element datatype (handle) */
+  int root,                 /* IN  - rank of root process (integer) */
+  const lwgrp_ring* group,  /* IN  - group (handle) */
+  const lwgrp_logring* list /* IN  - list (handle) */
+);
+
 int lwgrp_logring_allgather_brucks(
+  const void* sendbuf,      /* IN  - send buffer */
+  void* recvbuf,            /* OUT - recive buffer */
+  int num,                  /* IN  - number of elements on each process (non-negative integer) */
+  MPI_Datatype datatype,    /* IN  - element datatype (handle) */
+  const lwgrp_ring* group,  /* IN  - group (handle) */
+  const lwgrp_logring* list /* IN  - list (handle) */
+);
+
+int lwgrp_logring_allgatherv_binomial(
   const void* sendbuf,      /* IN  - send buffer */
   void* recvbuf,            /* OUT - recive buffer */
   int num,                  /* IN  - number of elements on each process (non-negative integer) */

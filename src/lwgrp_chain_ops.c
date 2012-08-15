@@ -54,7 +54,7 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
 
   /* allocate space for our send and receive buffers */
   int elements = 2 * num_bins + 1;
-  int* bins = (int*) malloc(4 * elements * sizeof(int));
+  int* bins = (int*) lwgrp_malloc(4 * elements * sizeof(int), sizeof(int), __FILE__, __LINE__);
   if (bins == NULL) {
     /* TODO: fail */
   }
@@ -267,7 +267,7 @@ int lwgrp_chain_allgather_int(int sendint, int recvbuf[], const lwgrp_chain* gro
   int scratch_size = 4 * buf_size;
   char* scratch = NULL;
   if (scratch_size > 0) {
-    scratch = (char*) malloc(scratch_size);
+    scratch = (char*) lwgrp_malloc(scratch_size, sizeof(int), __FILE__, __LINE__);
   }
 
   /* set up pointers to internal data structures */
@@ -378,8 +378,14 @@ int lwgrp_chain_allgather_int(int sendint, int recvbuf[], const lwgrp_chain* gro
 /* execute an left-to-right exclusive scan simultaneously with a
  * right-to-left exclusive scan */
 int lwgrp_chain_double_exscan(
-  const void* sendleft, void* recvright, const void* sendright, void* recvleft,
-  int count, MPI_Datatype type, MPI_Op op, const lwgrp_chain* group)
+  const void* sendleft,
+  void* recvright,
+  const void* sendright,
+  void* recvleft,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group)
 {
   /* TODO: use recursive doubling so all procs do same ops */
   int i;
@@ -392,28 +398,11 @@ int lwgrp_chain_double_exscan(
   int rank       = group->group_rank;
   int ranks      = group->group_size;
 
-  /* get lower bounds and extent of type */
-  MPI_Aint lb, extent;
-  MPI_Type_get_true_extent(type, &lb, &extent);
-
-  /* allocate space to hold temporaries */
-  char* scratch = NULL;
-  size_t scratch_size = 4 * count * extent;
-  if (scratch_size > 0) {
-    scratch = (char*) malloc(scratch_size);
-  }
-
   /* adjust for lower bounds */
-  char* tempsendleft  = NULL;
-  char* tempsendright = NULL;
-  char* temprecvleft  = NULL;
-  char* temprecvright = NULL;
-  if (scratch_size > 0) {
-    tempsendleft  = scratch + 0 * count * extent - lb;
-    tempsendright = scratch + 1 * count * extent - lb;
-    temprecvleft  = scratch + 2 * count * extent - lb;
-    temprecvright = scratch + 3 * count * extent - lb;
-  }
+  void* tempsendleft  = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
+  void* tempsendright = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
+  void* temprecvleft  = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
+  void* temprecvright = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
 
   /* intialize send buffers */
   if (sendleft != MPI_IN_PLACE) {
@@ -539,14 +528,24 @@ int lwgrp_chain_double_exscan(
   }
 
   /* free memory */
-  lwgrp_free(&scratch);
+  lwgrp_type_dtbuf_free(&temprecvright, type, __FILE__, __LINE__);
+  lwgrp_type_dtbuf_free(&temprecvleft,  type, __FILE__, __LINE__);
+  lwgrp_type_dtbuf_free(&tempsendright, type, __FILE__, __LINE__);
+  lwgrp_type_dtbuf_free(&temprecvleft,  type, __FILE__, __LINE__);
 
   return LWGRP_SUCCESS; 
 }
 #endif
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
-int lwgrp_chain_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Datatype type, MPI_Op op, const lwgrp_chain* group)
+
+int lwgrp_chain_allreduce(
+  const void* sendbuf,
+  void* recvbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group)
 {
   /* we implement a recursive doubling algorithm, but we're careful
    * to do this to support non-commutative ops, basically we find the
@@ -581,25 +580,8 @@ int lwgrp_chain_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Dat
     );
   }
 
-  /* get true extent of datatype */
-  MPI_Aint lb, extent;
-  MPI_Type_get_true_extent(type, &lb, &extent);
-
-  /* allocate buffer to receive partial results */
-  void* scratch = NULL;
-  size_t scratch_size = count * extent;
-  if (scratch_size > 0) {
-    scratch = (void*) malloc(scratch_size);
-    if (scratch == NULL) {
-      /* TODO: fail */
-    }
-  }
-
   /* adjust for non-zero lower bounds */
-  char* tempbuf = NULL;
-  if (scratch != NULL) {
-    tempbuf = (char*)scratch - lb;
-  }
+  void* tempbuf = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
 
   /* find largest power of two that fits within group_ranks */
   int pow2, log2;
@@ -711,7 +693,7 @@ int lwgrp_chain_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Dat
   }
 
   /* free our scratch space */
-  lwgrp_free(&scratch);
+  lwgrp_type_dtbuf_free(&tempbuf, type, __FILE__, __LINE__);
 
   return LWGRP_SUCCESS;
 }
@@ -719,7 +701,13 @@ int lwgrp_chain_allreduce(const void* sendbuf, void* recvbuf, int count, MPI_Dat
 /* assumes the chain has an exact power of two number of members,
  * input should be in resultbuf and output will be stored there,
  * scratchbuf should be scratch space */
-int lwgrp_chain_allreduce_pow2(void* resultbuf, void* scratchbuf, int count, MPI_Datatype type, MPI_Op op, const lwgrp_chain* group)
+int lwgrp_chain_allreduce_pow2(
+  void* resultbuf,
+  void* scratchbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group)
 {
   /* we use a recurisve doubling algorithm */
   MPI_Request request[4];
@@ -820,4 +808,5 @@ int lwgrp_chain_allreduce_pow2(void* resultbuf, void* scratchbuf, int count, MPI
 
   return LWGRP_SUCCESS;
 }
-#endif
+
+#endif /* MPI >= v2.2 */

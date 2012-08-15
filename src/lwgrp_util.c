@@ -11,6 +11,80 @@
 #include <stdio.h>
 #include "mpi.h"
 #include "lwgrp.h"
+#include "lwgrp_internal.h"
+
+/* given a pointer to the start of a datatype buffer, return pointer to
+ * datatype buffer for the start of the count-th element */
+void* lwgrp_type_dtbuf_from_dtbuf(const void* dtbuf, int count, MPI_Datatype type)
+{
+  /* get lower bounds and extent of datatype */
+  MPI_Aint lb, extent;
+  MPI_Type_get_extent(type, &lb, &extent);
+
+  char* ptr = (char*)dtbuf + count * extent;
+  return ptr;
+}
+
+/* given a pointer to the start of a memory buffer, return pointer to
+ * be used as a datatype buffer for the start of the count-th element */
+void* lwgrp_type_dtbuf_from_membuf(const void* membuf, int count, MPI_Datatype type)
+{
+  /* get lower bounds and extent of datatype */
+  MPI_Aint lb, extent;
+  MPI_Type_get_extent(type, &lb, &extent);
+
+  char* ptr = (char*)membuf -lb + count * extent;
+  return ptr;
+}
+
+/* returns the size of a buffer needed to hold count consecutive items */
+size_t lwgrp_type_membuf_size(int count, MPI_Datatype type)
+{
+}
+
+/* allocate a buffer large enough to hold count consecutive items,
+ * and align buf to type */
+void* lwgrp_type_dtbuf_alloc(int count, MPI_Datatype type, const char* file, int line)
+{
+#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+#endif
+  /* get lower bounds and extent of datatype */
+  MPI_Aint lb, extent;
+  MPI_Type_get_extent(type, &lb, &extent);
+
+  size_t size  = count * extent;
+  size_t align = 0;
+  char* ptr = (char*) lwgrp_malloc(size, align, file, line);
+  ptr -= lb;
+  return ptr;
+}
+
+/* free buffer allocated with lwgrp_type_dtbuf_alloc */
+int lwgrp_type_dtbuf_free(void** dtbuf_ptr, MPI_Datatype type, const char* file, int line)
+{
+  if (dtbuf_ptr != NULL) {
+    void* dtbuf = *dtbuf_ptr;
+    if (dtbuf != NULL) {
+      /* get lower bounds and extent of datatype */
+      MPI_Aint lb, extent;
+      MPI_Type_get_extent(type, &lb, &extent);
+
+      char* ptr = (char*)dtbuf + lb;
+      if (ptr != NULL) {
+        free(ptr);
+      } else {
+        /* ERROR: dtbuf should be NULL in this case */
+      }
+    } else {
+      /* OK: user can pass a pointer whose value is NULL, ignore it */
+    }
+  } else {
+    /* ERROR: user passed in a NULL value as the address of his pointer */
+  }
+
+  return LWGRP_SUCCESS;
+}
+
 
 /* malloc with some checks on size and the returned pointer, along with
  * future support for alignment, if size <= 0, malloc is not called and
@@ -53,52 +127,6 @@ void lwgrp_free(void* p)
     free(*ptr);
     *ptr = NULL;
   }
-}
-
-/* given a datatype and a count, return the number of bytes required
- * to hold that number of items in one buffer */
-size_t lwgrp_type_get_bufsize(int num, MPI_Datatype type)
-{
-  /* TODO: we could do this with type_contiguous, type_get_true_extent,
-   * type_free, which would be more accurate but likely more expensive */
-
-  /* get true extent of datatype */
-  MPI_Aint true_lb, true_extent;
-  MPI_Type_get_true_extent(type, &true_lb, &true_extent);
-
-  /* compute memory needed to hold num copies */
-  size_t size = num * true_extent;
-
-  return size;
-}
-
-/* given the start of a buffer in memory, a datatype, and a count n,
- * return the address that should be passed to an MPI function that
- * represents the start of the nth item, adjust for lower bound and
- * extent, we isolate the logic here since the math is simple but
- * not intuitive */
-void* lwgrp_type_get_bufstart(const void* buf, int num, MPI_Datatype type)
-{
-  /* nothing to do if the buffer is NULL */
-  if (buf == NULL) {
-    return NULL;
-  }
-
-  /* get extent of datatype (used as scaling factor from start) */
-  MPI_Aint lb, extent;
-  MPI_Type_get_extent(type, &lb, &extent);
-
-  /* get true lower bound of datatype (need to adjust starting offset) */
-  MPI_Aint true_lb, true_extent;
-  MPI_Type_get_true_extent(type, &true_lb, &true_extent);
-
-  /* adjust for lower bounds */
-  const char* newbuf = (const char*)buf - true_lb;
-
-  /* now move num extents up */
-  newbuf += extent * num;
-
-  return (void*)newbuf;
 }
 
 void lwgrp_memcpy(void* dst, const void* src, int count, MPI_Datatype type, int rank, MPI_Comm comm)

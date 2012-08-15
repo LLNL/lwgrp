@@ -13,6 +13,8 @@
 
 #include "mpi.h"
 #include "lwgrp.h"
+#include "lwgrp_comm.h"
+#include "lwgrp_internal.h"
 
 /* Based on "Exascale Algorithms for Generalized MPI_Comm_split",
  * EuroMPI 2011, Adam Moody, Dong H. Ahn, and Bronis R. de Supinkski
@@ -47,6 +49,7 @@ enum ckr_fields {
   CKR_COLOR = 0,
   CKR_KEY   = 1,
   CKR_RANK  = 2,
+  CKR_ADDR  = 3,
 };
 
 /* compares a (color,key,rank) integer tuple, first by color,
@@ -82,10 +85,16 @@ static int lwgrp_cmp_three_ints(const int a[], const int b[])
 }
 
 static int lwgrp_sort_bitonic_merge(
-  int value[3], int start, int num, int direction, const lwgrp_chain* group, const lwgrp_logchain* list, int tag)
+  int num_ints,
+  int value[],
+  int scratch[],
+  int start,
+  int num,
+  int direction,
+  const lwgrp_chain* group,
+  const lwgrp_logchain* list,
+  int tag)
 {
-  int scratch[3];
-
   if (num > 1) {
     /* get our group communicator and our rank within the group */
     MPI_Comm comm = group->comm;
@@ -110,8 +119,8 @@ static int lwgrp_sort_bitonic_merge(
         /* exchange data with our partner rank */
         int partner = list->right_list[index];
         MPI_Sendrecv(
-          value,   3, MPI_INT, partner, tag,
-          scratch, 3, MPI_INT, partner, tag,
+          value,   num_ints, MPI_INT, partner, tag,
+          scratch, num_ints, MPI_INT, partner, tag,
           comm, status
         );
 
@@ -119,20 +128,22 @@ static int lwgrp_sort_bitonic_merge(
          * depedning on the sort direction */
         int cmp = lwgrp_cmp_three_ints(scratch, value);
         if ((direction && cmp < 0) || (!direction && cmp > 0)) {
-          memcpy(value, scratch, 3 * sizeof(int));
+          memcpy(value, scratch, num_ints * sizeof(int));
         }
       }
 
       /* recursively merge our half */
-      lwgrp_sort_bitonic_merge(value, start, count, direction, group, list, tag);
+      lwgrp_sort_bitonic_merge(
+        num_ints, value, scratch, start, count, direction, group, list, tag
+      );
     } else {
       int dst_rank = rank - count;
       if (dst_rank >= start) {
         /* exchange data with our partner rank */
         int partner = list->left_list[index];
         MPI_Sendrecv(
-          value,   3, MPI_INT, partner, tag,
-          scratch, 3, MPI_INT, partner, tag,
+          value,   num_ints, MPI_INT, partner, tag,
+          scratch, num_ints, MPI_INT, partner, tag,
           comm, status
         );
 
@@ -140,14 +151,16 @@ static int lwgrp_sort_bitonic_merge(
          * depedning on the sort direction */
         int cmp = lwgrp_cmp_three_ints(scratch, value);
         if ((direction && cmp > 0) || (!direction && cmp < 0)) {
-          memcpy(value, scratch, 3 * sizeof(int));
+          memcpy(value, scratch, num_ints * sizeof(int));
         }
       }
 
       /* recursively merge our half */
       int new_start = start + count;
       int new_num   = num - count;
-      lwgrp_sort_bitonic_merge(value, new_start, new_num, direction, group, list, tag);
+      lwgrp_sort_bitonic_merge(
+        num_ints, value, scratch, new_start, new_num, direction, group, list, tag
+      );
     }
   }
 
@@ -155,7 +168,15 @@ static int lwgrp_sort_bitonic_merge(
 }
 
 static int lwgrp_sort_bitonic_sort(
-  int value[3], int start, int num, int direction, const lwgrp_chain* group, const lwgrp_logchain* list, int tag)
+  int num_ints,
+  int value[],
+  int scratch[],
+  int start,
+  int num,
+  int direction,
+  const lwgrp_chain* group,
+  const lwgrp_logchain* list,
+  int tag)
 {
   if (num > 1) {
     /* get our rank in our group */
@@ -164,15 +185,21 @@ static int lwgrp_sort_bitonic_sort(
     /* recursively divide and sort each half */
     int mid = num / 2;
     if (rank < start + mid) {
-      lwgrp_sort_bitonic_sort(value, start, mid, !direction, group, list, tag);
+      lwgrp_sort_bitonic_sort(
+        num_ints, value, scratch, start, mid, !direction, group, list, tag
+      );
     } else {
       int new_start = start + mid;
       int new_num   = num - mid;
-      lwgrp_sort_bitonic_sort(value, new_start, new_num, direction, group, list, tag);
+      lwgrp_sort_bitonic_sort(
+        num_ints, value, scratch, new_start, new_num, direction, group, list, tag
+      );
     }
 
     /* merge the two sorted halves */
-    lwgrp_sort_bitonic_merge(value, start, num, direction, group, list, tag);
+    lwgrp_sort_bitonic_merge(
+      num_ints, value, scratch, start, num, direction, group, list, tag
+    );
   }
 
   return 0;
@@ -182,15 +209,23 @@ static int lwgrp_sort_bitonic_sort(
  * each process provides its tuple as item on input,
  * on output item is overwritten with a new item
  * such that if rank_i < rank_j, item_i < item_j for all i and j */
-static int lwgrp_logchain_sort_bitonic(int item[3], const lwgrp_chain* group, const lwgrp_logchain* list, int tag)
+static int lwgrp_logchain_sort_bitonic(
+  int num_ints,
+  int item[],
+  int scratch[],
+  const lwgrp_chain* group,
+  const lwgrp_logchain* list,
+  int tag)
 {
   /* conduct the bitonic sort on our values */
   int ranks = group->group_size;
-  int rc = lwgrp_sort_bitonic_sort(item, 0, ranks, 1, group, list, tag);
+  int rc = lwgrp_sort_bitonic_sort(
+    num_ints, item, scratch, 0, ranks, 1, group, list, tag
+  );
   return rc;
 }
 
-enum scan_fields {
+static enum scan_fields {
   SCAN_FLAG  = 0, /* set flag to 1 when we should stop accumulating */
   SCAN_COUNT = 1, /* running count being accumulated */
   SCAN_NEXT  = 2, /* rank of next process to talk to */
@@ -208,7 +243,12 @@ enum scan_fields {
  *   3) sends left/right neighbor info along with rank and group
  *      size back to originating rank via isend/irecv ANY_SOURCE
  *      followed by a barrier */
-static int lwgrp_chain_split_sorted(const int val[3], const lwgrp_chain* in, int tag, int out_ints[5])
+static int lwgrp_chain_split_sorted(
+  const int val[4],
+  const lwgrp_chain* in,
+  int tag1,
+  int tag2,
+  lwgrp_chain* out)
 {
   int k;
   MPI_Request request[4];
@@ -218,7 +258,8 @@ static int lwgrp_chain_split_sorted(const int val[3], const lwgrp_chain* in, int
    * representing the chain data structure for the the globally
    * ordered color/key/rank tuple that we hold, which we'll later
    * send back to the rank that contributed our item */
-  out_ints[CHAIN_SRC] = val[CKR_RANK];
+  int send_ints[5];
+  send_ints[CHAIN_SRC] = val[CKR_ADDR];
 
   /* get the communicator to send our messages on */
   MPI_Comm comm = in->comm;
@@ -228,20 +269,28 @@ static int lwgrp_chain_split_sorted(const int val[3], const lwgrp_chain* in, int
   k = 0;
   int left_rank  = in->comm_left;
   int right_rank = in->comm_right;
-  int left_buf[3];
-  int right_buf[3];
+  int left_buf[4];
+  int right_buf[4];
   if (left_rank != MPI_PROC_NULL) {
-    MPI_Isend((void*)val, 3, MPI_INT, left_rank, tag, comm, &request[k]);
+    MPI_Isend(
+      (void*)val, 4, MPI_INT, left_rank, tag1, comm, &request[k]
+    );
     k++;
 
-    MPI_Irecv(left_buf, 3, MPI_INT, left_rank, tag, comm, &request[k]);
+    MPI_Irecv(
+      left_buf, 4, MPI_INT, left_rank, tag1, comm, &request[k]
+    );
     k++;
   }
   if (right_rank != MPI_PROC_NULL) {
-    MPI_Isend((void*)val, 3, MPI_INT, right_rank, tag, comm, &request[k]);
+    MPI_Isend(
+      (void*)val, 4, MPI_INT, right_rank, tag1, comm, &request[k]
+    );
     k++;
 
-    MPI_Irecv(right_buf, 3, MPI_INT, right_rank, tag, comm, &request[k]);
+    MPI_Irecv(
+      right_buf, 4, MPI_INT, right_rank, tag1, comm, &request[k]
+    );
     k++;
   }
   if (k > 0) {
@@ -252,24 +301,28 @@ static int lwgrp_chain_split_sorted(const int val[3], const lwgrp_chain* in, int
    * then our element is part of his group, otherwise we are the first
    * rank of a new group */
   int first_in_group = 0;
-  if (left_rank != MPI_PROC_NULL && left_buf[CKR_COLOR] == val[CKR_COLOR]) {
+  if (left_rank != MPI_PROC_NULL &&
+      left_buf[CKR_COLOR] == val[CKR_COLOR])
+  {
     /* record the rank of the item from our left neighbor */
-    out_ints[CHAIN_LEFT] = left_buf[CKR_RANK];
+    send_ints[CHAIN_LEFT] = left_buf[CKR_ADDR];
   } else {
     first_in_group = 1;
-    out_ints[CHAIN_LEFT] = MPI_PROC_NULL;
+    send_ints[CHAIN_LEFT] = MPI_PROC_NULL;
   }
 
   /* if we have a right neighbor, and if his color value matches ours,
    * then our element is part of his group, otherwise we are the last
    * rank of our group */
   int last_in_group = 0;
-  if (right_rank != MPI_PROC_NULL && right_buf[CKR_COLOR] == val[CKR_COLOR]) {
+  if (right_rank != MPI_PROC_NULL &&
+      right_buf[CKR_COLOR] == val[CKR_COLOR])
+  {
     /* record the rank of the item from our right neighbor */
-    out_ints[CHAIN_RIGHT] = right_buf[CKR_RANK];
+    send_ints[CHAIN_RIGHT] = right_buf[CKR_ADDR];
   } else {
     last_in_group = 1;
-    out_ints[CHAIN_RIGHT] = MPI_PROC_NULL;
+    send_ints[CHAIN_RIGHT] = MPI_PROC_NULL;
   }
 
   /* prepare buffers for our scan operations */
@@ -294,25 +347,33 @@ static int lwgrp_chain_split_sorted(const int val[3], const lwgrp_chain* in, int
 
     /* send and receive data with left partner */
     if (left_rank != MPI_PROC_NULL) {
-      MPI_Irecv(recv_left_ints, 3, MPI_INT, left_rank, tag, comm, &request[k]);
+      MPI_Irecv(
+        recv_left_ints, 3, MPI_INT, left_rank, tag1, comm, &request[k]
+      );
       k++;
 
       /* send the rank of our right neighbor to our left,
        * since it will be his right neighbor in the next step */
       send_left_ints[SCAN_NEXT] = right_rank;
-      MPI_Isend(send_left_ints, 3, MPI_INT, left_rank, tag, comm, &request[k]);
+      MPI_Isend(
+        send_left_ints, 3, MPI_INT, left_rank, tag1, comm, &request[k]
+      );
       k++;
     }
 
     /* send and receive data with right partner */
     if (right_rank != MPI_PROC_NULL) {
-      MPI_Irecv(recv_right_ints, 3, MPI_INT, right_rank, tag, comm, &request[k]);
+      MPI_Irecv(
+        recv_right_ints, 3, MPI_INT, right_rank, tag1, comm, &request[k]
+      );
       k++;
 
       /* send the rank of our left neighbor to our right,
        * since it will be his left neighbor in the next step */
       send_right_ints[SCAN_NEXT] = left_rank;
-      MPI_Isend(send_right_ints, 3, MPI_INT, right_rank, tag, comm, &request[k]);
+      MPI_Isend(
+        send_right_ints, 3, MPI_INT, right_rank, tag1, comm, &request[k]
+      );
       k++;
     }
 
@@ -355,84 +416,128 @@ static int lwgrp_chain_split_sorted(const int val[3], const lwgrp_chain* in, int
    * Our rank is the number of ranks to our left (right-going count
    * minus 1), and the group size is the sum of right-going and
    * left-going counts minus 1 so we don't double counts ourself. */
-  out_ints[CHAIN_RANK] = send_right_ints[SCAN_COUNT] - 1;
-  out_ints[CHAIN_SIZE] = send_right_ints[SCAN_COUNT] + send_left_ints[SCAN_COUNT] - 1;
-
-  return 0;
-}
-
-/* same as lwgrp_comm_split_members, but runs in O(log^2 N) time
- * instead of O(N) by building and returing a chain representation
- * of the output group */
-int lwgrp_comm_split_chain(MPI_Comm comm, int color, int key, int tag1, int tag2, lwgrp_chain* out)
-{
-  /* TODO: for small groups, fastest to do an allgather and
-   * local sort */
-
-  /* build a group representing our input communicator -- O(1) local */
-  lwgrp_chain in;
-  lwgrp_chain_build_from_comm(comm, &in);
-
-  /* build a logchain for our input communicator -- O(log N) local */
-  lwgrp_logchain list;
-  lwgrp_logchain_build_from_comm(comm, &list);
-
-  /* allocate memory to hold item for sorting (color,key,rank) tuple
-   * and prepare input -- O(1) local */
-  int item[3];
-  item[CKR_COLOR] = color;
-  item[CKR_KEY]   = key;
-  item[CKR_RANK]  = in.comm_rank;
-
-  /* sort our values using bitonic sort algorithm -- 
-   * O(log^2 N) communication */
-  lwgrp_logchain_sort_bitonic(item, &in, &list, tag1);
-
-  /* now split our sorted values by comparing our value with our
-   * left and right neighbors to determine group boundaries --
-   * O(log N) communication */
-  int send_group_ints[5];
-  lwgrp_chain_split_sorted(item, &in, tag1, send_group_ints);
+  send_ints[CHAIN_RANK] = send_right_ints[SCAN_COUNT] - 1;
+  send_ints[CHAIN_SIZE] = send_right_ints[SCAN_COUNT] + 
+                         send_left_ints[SCAN_COUNT] - 1;
 
   /* send group info back to originating rank,
    * receive our own from someone else
    * (don't know who so use an ANY_SOURCE recv) */
-  int recv_group_ints[5];
-  MPI_Request request[2];
-  MPI_Status  status[2];
-  MPI_Isend(send_group_ints, 5, MPI_INT, send_group_ints[0],  tag2, comm, &request[0]);
-  MPI_Irecv(recv_group_ints, 5, MPI_INT, MPI_ANY_SOURCE,      tag2, comm, &request[1]);
+  int recv_ints[5];
+  MPI_Isend(
+    send_ints, 5, MPI_INT, send_ints[CHAIN_SRC], tag2,
+    comm, &request[0]
+  );
+  MPI_Irecv(
+    recv_ints, 5, MPI_INT, MPI_ANY_SOURCE, tag2,
+    comm, &request[1]
+  );
   MPI_Waitall(2, request, status);
 
-  /* execute barrier to ensure that everyone is done with
-   * their above ANY_SOURCE recv */
-  MPI_Barrier(comm);
-
   /* fill in info for our group */
-  out->comm       = in.comm;
-  out->comm_rank  = in.comm_rank;
-  out->comm_left  = recv_group_ints[CHAIN_LEFT];
-  out->comm_right = recv_group_ints[CHAIN_RIGHT];
-  out->group_rank = recv_group_ints[CHAIN_RANK];
-  out->group_size = recv_group_ints[CHAIN_SIZE];
+  out->comm       = in->comm;
+  out->comm_rank  = in->comm_rank;
+  out->comm_left  = recv_ints[CHAIN_LEFT];
+  out->comm_right = recv_ints[CHAIN_RIGHT];
+  out->group_rank = recv_ints[CHAIN_RANK];
+  out->group_size = recv_ints[CHAIN_SIZE];
+
+  return LWGRP_SUCCESS;
+}
+
+int lwgrp_comm_split(
+  const lwgrp_comm* comm,
+  int color,
+  int key,
+  lwgrp_comm* newcomm)
+{
+  int tag1 = 0;
+  int tag2 = 1;
+
+  /* TODO: for small groups, fastest to do an allgather and
+   * local sort */
+
+  /* build a group representing our input communicator -- O(1) local */
+  lwgrp_chain chain;
+  lwgrp_chain_build_from_ring(&comm->ring, &chain);
+
+  /* build a logchain for our input communicator -- O(log N) local */
+  lwgrp_logchain logchain;
+  lwgrp_logchain_build_from_logring(&comm->ring, &comm->logring, &logchain);
+
+  /* allocate memory to hold item for sorting (color,key,rank) tuple
+   * and prepare input -- O(1) local */
+  int item[4];
+  int scratch[4];
+  item[CKR_COLOR] = color;
+  item[CKR_KEY]   = key;
+  item[CKR_RANK]  = chain.group_rank;
+  item[CKR_ADDR]  = chain.comm_rank;
+
+  /* sort our values using bitonic sort algorithm -- 
+   * O(log^2 N) communication */
+  lwgrp_logchain_sort_bitonic(4, item, scratch, &chain, &logchain, tag1);
+
+  /* now split our sorted values by comparing our value with our
+   * left and right neighbors to determine group boundaries --
+   * O(log N) communication */
+  lwgrp_chain newchain;
+  lwgrp_chain_split_sorted(item, &chain, tag1, tag2, &newchain);
 
   /* if color is undefined, at this point we have the group of
    * processes that all set color == MPI_UNDEFINED, but we
    * really want the empty group */
   if (color == MPI_UNDEFINED) {
-    lwgrp_chain_set_null(out);
+    lwgrp_chain_set_null(&newchain);
   }
 
+  /* build comm from newly created chain */
+  lwgrp_comm_build_from_chain(&newchain, newcomm);
+
   /* free the logchain -- O(1) local */
-  lwgrp_logchain_free(&list);
+  lwgrp_logchain_free(&logchain);
 
   /* free our group -- O(1) local */
-  lwgrp_chain_free(&in);
+  lwgrp_chain_free(&chain);
+
+  return LWGRP_SUCCESS;
+}
+
+#if 0
+/* same as lwgrp_comm_split_members, but runs in O(log^2 N) time
+ * instead of O(N) by building and returing a chain representation
+ * of the output group */
+int lwgrp_comm_split_from_mpicomm(
+  MPI_Comm mpicomm,
+  int color,
+  int key,
+  lwgrp_comm* newcomm)
+{
+  /* TODO: for small groups, fastest to do an allgather and
+   * local sort */
+
+  /* build a group representing our input communicator -- O(N) local */
+  lwgrp_comm comm;
+  lwgrp_comm_build_from_comm(mpicomm, &comm);
+
+  /* sort our values using bitonic sort algorithm -- 
+   * O(log^2 N) communication */
+  lwgrp_comm_split(&comm, color, key, newcomm);
+
+  /* free our group -- O(1) local */
+  lwgrp_comm_free(&comm);
 
   return 0;
 }
 
-int lwgrp_comm_split_members(MPI_Comm comm, int color, int key, int tag1, int tag2, int* size, int members[])
+int lwgrp_comm_split_members(
+  MPI_Comm comm,
+  int color,
+  int key,
+  int tag1,
+  int tag2,
+  int* size,
+  int members[])
 {
   /* split comm with lwgrp_comm_split_chain to get the chain
    * corresponding to our group, this takes O(log^2 N) time due
@@ -461,7 +566,13 @@ int lwgrp_comm_split_members(MPI_Comm comm, int color, int key, int tag1, int ta
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
 /* uses MPI_COMM_CREATE in a way that was only supported in
  * MPI-2.2 and later */
-int lwgrp_comm_split_create(MPI_Comm comm, int color, int key, int tag1, int tag2, MPI_Comm* new_comm)
+int lwgrp_comm_split_create(
+  MPI_Comm comm,
+  int color,
+  int key,
+  int tag1,
+  int tag2,
+  MPI_Comm* new_comm)
 {
   /* get the size of comm */
   int ranks;
@@ -473,7 +584,9 @@ int lwgrp_comm_split_create(MPI_Comm comm, int color, int key, int tag1, int tag
 
   /* split the communicator and the get the list of members */
   int size;
-  lwgrp_comm_split_members(comm, color, key, tag1, tag2, &size, members);
+  lwgrp_comm_split_members(
+    comm, color, key, tag1, tag2, &size, members
+  );
 
   if (size > 0) {
     /* construct an MPI group based on our list of processes */
@@ -494,4 +607,6 @@ int lwgrp_comm_split_create(MPI_Comm comm, int color, int key, int tag1, int tag
 
   return 0;
 }
+#endif
+
 #endif

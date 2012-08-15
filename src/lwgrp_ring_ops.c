@@ -53,7 +53,7 @@ int lwgrp_ring_split_bin(int num_bins, int my_bin, const lwgrp_ring* in, lwgrp_r
 
   /* allocate space for our send and receive buffers */
   int elements = 2 * num_bins + 1;
-  int* bins = (int*) malloc(4 * elements * sizeof(int));
+  int* bins = (int*) lwgrp_malloc(4 * elements * sizeof(int), sizeof(int), __FILE__, __LINE__);
   if (bins == NULL) {
     /* TODO: fail */
   }
@@ -209,12 +209,6 @@ int lwgrp_ring_alltoallv_linear(
   int rank      = group->group_rank;
   int ranks     = group->group_size;
 
-  /* get true extent of datatype so we can compute offset into buffers */
-  MPI_Aint sendlb, sendextent;
-  MPI_Aint recvlb, recvextent;
-  MPI_Type_get_extent(datatype, &sendlb, &sendextent);
-  MPI_Type_get_extent(datatype, &recvlb, &recvextent);
-
   /* execute the alltoall operation */
   MPI_Request request[6];
   MPI_Status status[6];
@@ -224,12 +218,12 @@ int lwgrp_ring_alltoallv_linear(
   int src_next, dst_next;
   while (dist < ranks) {
     /* receive data from src */
-    char* recv_ptr = (char*)recvbuf + recvdispls[src] * recvextent;
+    void* recv_ptr = lwgrp_type_dtbuf_from_dtbuf(recvbuf, recvdispls[src], datatype);
     int recv_count = recvcounts[src];
     MPI_Irecv(recv_ptr, recv_count, datatype, src, LWGRP_MSG_TAG_0, comm, &request[0]);
 
     /* send data to dst */
-    char* send_ptr = (char*)sendbuf + senddispls[dst] * sendextent;
+    void* send_ptr = lwgrp_type_dtbuf_from_dtbuf(sendbuf, senddispls[dst], datatype);
     int send_count = sendcounts[dst];
     MPI_Isend(send_ptr, send_count, datatype, dst, LWGRP_MSG_TAG_0, comm, &request[1]);
 

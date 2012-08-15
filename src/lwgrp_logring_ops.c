@@ -18,6 +18,8 @@ int lwgrp_logring_barrier(
   const lwgrp_ring* group,
   const lwgrp_logring* list)
 {
+  int rc = LWGRP_SUCCESS;
+
   /* get ring info */
   MPI_Comm comm  = group->comm;
   int ranks      = group->group_size;
@@ -43,7 +45,7 @@ int lwgrp_logring_barrier(
     dist <<= 1;
   } 
 
-  return 0;
+  return rc;
 }
 
 /* implements a binomail tree */
@@ -55,6 +57,8 @@ int lwgrp_logring_bcast(
   const lwgrp_ring* group,
   const lwgrp_logring* list)
 {
+  int rc = LWGRP_SUCCESS;
+
   /* get ring info */
   MPI_Comm comm  = group->comm;
   int rank       = group->group_rank;
@@ -103,7 +107,46 @@ int lwgrp_logring_bcast(
     pow2 >>= 1;
   }
 
-  return 0;
+  return rc;
+}
+
+int lwgrp_logring_gather_brucks(
+  const void* sendbuf,
+  void* recvbuf,
+  int num,
+  MPI_Datatype datatype,
+  int root,
+  const lwgrp_ring* group,
+  const lwgrp_logring* list)
+{
+  int rc = LWGRP_SUCCESS;
+
+  /* get ring info */
+  int rank  = group->group_rank;
+  int ranks = group->group_size;
+
+  /* allocate a temporary receive buffer */
+  size_t total_elems = num * ranks;
+  void* tmpbuf = lwgrp_type_dtbuf_alloc(total_elems, datatype, __FILE__, __LINE__);
+
+  /* if we're the root, use recvbuf, otherwise use temporary */
+  char* buf;
+  if (rank == root) {
+    buf = tmpbuf;
+  } else {
+    buf = recvbuf;
+  }
+
+  /* delegate work to allgather */
+  rc = lwgrp_logring_allgather_brucks(
+    sendbuf, buf, num, datatype,
+    group, list
+  );
+
+  /* free temporary memory */
+  lwgrp_type_dtbuf_free(&tmpbuf, datatype, __FILE__, __LINE__);
+
+  return rc;
 }
 
 /* issue an allgather using Bruck's algorithm */
@@ -115,43 +158,26 @@ int lwgrp_logring_allgather_brucks(
   const lwgrp_ring* group,
   const lwgrp_logring* list)
 {
+  int rc = LWGRP_SUCCESS;
+
   /* get ring info */
   MPI_Comm comm  = group->comm;
+  int comm_rank  = group->comm_rank;
   int rank       = group->group_rank;
   int ranks      = group->group_size;
 
-  /* get extent of datatype so we can allocate space */
-  MPI_Aint lb, extent;
-  MPI_Type_get_extent(datatype, &lb, &extent);
-
-  /* get true extent of datatype so we can allocate space */
-  MPI_Aint true_lb, true_extent;
-  MPI_Type_get_true_extent(datatype, &true_lb, &true_extent);
-
-  /* compute size of datatype */
-  size_t size = (size_t) true_extent * num;
-  if (size <= 0) {
-    return 0;
-  }
-
-  /* free some temporary space to work with */
-  int scratch_size = size * ranks;
-  char* scratch = (char*) malloc(scratch_size);
-  if (scratch == NULL) {
-    /* TODO: fail */
-  }
-
-  /* adjust for lower bounds */
-  char* tmpbuf = scratch - true_lb;
+  /* allocate temporary buffer */
+  size_t total_elems = num * ranks;
+  void* tmpbuf = lwgrp_type_dtbuf_alloc(total_elems, datatype, __FILE__, __LINE__);
 
   /* copy our own data into the temporary buffer */
-  const char* inputbuf = (const char*) sendbuf;
+  const void* inputbuf = sendbuf;
 #if MPI_VERSION >= 2
   if (sendbuf == MPI_IN_PLACE) {
-    inputbuf = (const char*)recvbuf + rank * extent * num;
+    inputbuf = (const void*) lwgrp_type_dtbuf_from_dtbuf(recvbuf, num * rank, datatype);
   }
 #endif
-  lwgrp_memcpy(tmpbuf, inputbuf, num, datatype, rank, comm);
+  lwgrp_memcpy(tmpbuf, inputbuf, num, datatype, comm_rank, comm);
 
   /* execute the allgather operation */
   MPI_Request request[2];
@@ -164,7 +190,8 @@ int lwgrp_logring_allgather_brucks(
     int src = list->right_list[index];
     int dst = list->left_list[index];
 
-    /* determine number of elements we'll be sending and receiving in this round */
+    /* determine number of elements we'll be sending and receiving in
+     * this round */
     int ranks_incoming = step;
     if (ranks_received + ranks_incoming > ranks) {
       ranks_incoming = ranks - ranks_received;
@@ -172,11 +199,17 @@ int lwgrp_logring_allgather_brucks(
     int num_exchange = num * ranks_incoming;
 
     /* receive data from source */
-    char* recv_pos = tmpbuf + ranks_received * extent * num;
-    MPI_Irecv(recv_pos, num_exchange, datatype, src, LWGRP_MSG_TAG_0, comm, &request[0]); 
+    void* recv_pos = lwgrp_type_dtbuf_from_dtbuf(tmpbuf, ranks_received * num, datatype);
+    MPI_Irecv(
+      recv_pos, num_exchange, datatype, src, LWGRP_MSG_TAG_0,
+      comm, &request[0]
+    ); 
 
     /* send the data to destination */
-    MPI_Isend(tmpbuf, num_exchange, datatype, dst, LWGRP_MSG_TAG_0, comm, &request[1]);
+    MPI_Isend(
+      tmpbuf, num_exchange, datatype, dst, LWGRP_MSG_TAG_0,
+      comm, &request[1]
+    );
 
     /* wait for communication to complete */
     MPI_Waitall(2, request, status);
@@ -190,13 +223,125 @@ int lwgrp_logring_allgather_brucks(
   }
 
   /* shift our data back to the proper position in receive buffer */
-  lwgrp_memcpy((char*)recvbuf + rank * extent * num, tmpbuf, (ranks - rank) * num, datatype, rank, comm);
-  lwgrp_memcpy(recvbuf, (char*)tmpbuf + (ranks - rank) * extent * num, rank * num, datatype, rank, comm);
+  int num_pre  = num * rank;
+  int num_post = num * (ranks - rank);
+  void* buf_pre  = lwgrp_type_dtbuf_from_dtbuf(recvbuf, num_pre, datatype);
+  void* buf_post = lwgrp_type_dtbuf_from_dtbuf(tmpbuf, num_post, datatype);
+  lwgrp_memcpy(buf_pre, tmpbuf,  num_post, datatype, comm_rank, comm);
+  lwgrp_memcpy(recvbuf, buf_post, num_pre, datatype, comm_rank, comm);
 
   /* free the temporary buffer */
-  lwgrp_free(&scratch);
+  lwgrp_type_dtbuf_free(&tmpbuf, datatype, __FILE__, __LINE__);
 
-  return 0;
+  return rc;
+}
+
+int lwgrp_logring_allgatherv_brucks(
+  const void* sendbuf,
+  void* recvbuf,
+  const int counts[],
+  const int displs[],
+  MPI_Datatype datatype,
+  const lwgrp_ring* group,
+  const lwgrp_logring* list)
+{
+  int i;
+  int rc = LWGRP_SUCCESS;
+
+
+  /* get ring info */
+  MPI_Comm comm  = group->comm;
+  int comm_rank  = group->comm_rank;
+  int rank       = group->group_rank;
+  int ranks      = group->group_size;
+
+  /* total up number of items */
+  int sum = 0;
+  int prefix_sum = 0;
+  for (i = 0; i < ranks; i++) {
+    sum += counts[i];
+    if (i < rank) {
+      prefix_sum += counts[i];
+    }
+  }
+
+  /* free some temporary space to work with */
+  void* tmpbuf = lwgrp_type_dtbuf_alloc(sum, datatype, __FILE__, __LINE__);
+
+  /* copy our own data into the temporary buffer */
+  int num = counts[rank];
+  const void* inputbuf = sendbuf;
+#if MPI_VERSION >= 2
+  if (sendbuf == MPI_IN_PLACE) {
+    inputbuf = (const void*) lwgrp_type_dtbuf_from_dtbuf(recvbuf, prefix_sum, datatype);
+  }
+#endif
+  lwgrp_memcpy(tmpbuf, inputbuf, num, datatype, comm_rank, comm);
+
+  /* execute the allgather operation */
+  MPI_Request request[2];
+  MPI_Status status[2];
+  int index = 0;
+  int step  = 1;
+  int ranks_received = 1;
+  int num_received   = num;
+  while (step < ranks) {
+    /* get ranks for left and right partners */
+    int src = list->right_list[index];
+    int dst = list->left_list[index];
+
+    /* determine number of elements we'll be sending and receiving in
+     * this round */
+    int ranks_incoming = step;
+    if (ranks_received + ranks_incoming > ranks) {
+      ranks_incoming = ranks - ranks_received;
+    }
+    int num_incoming = 0;
+    for (i = rank + 1; i < rank + 1 + step; i++) {
+      int index = i;
+      if (i >= ranks) {
+        index -= ranks;
+      }
+      num_incoming += counts[index];
+    }
+
+    /* receive data from source */
+    void* recv_pos = lwgrp_type_dtbuf_from_dtbuf(tmpbuf, num_received, datatype);
+    MPI_Irecv(
+      recv_pos, num_incoming, datatype, src, LWGRP_MSG_TAG_0,
+      comm, &request[0]
+    ); 
+
+    /* send the data to destination */
+    MPI_Isend(
+      tmpbuf, num_received, datatype, dst, LWGRP_MSG_TAG_0,
+      comm, &request[1]
+    );
+
+    /* wait for communication to complete */
+    MPI_Waitall(2, request, status);
+
+    /* add the count to the total number we've received */
+    ranks_received += ranks_incoming;
+    num_received   += num_incoming;
+
+    /* go on to next iteration */
+    index++;
+    step <<= 1;
+  }
+
+  /* shift our data back to the proper position in receive buffer */
+  int num_pre  = prefix_sum;
+  int num_post = sum - num_pre;
+  void* buf_pre  = lwgrp_type_dtbuf_from_dtbuf(recvbuf, num_pre, datatype);
+  void* buf_post = lwgrp_type_dtbuf_from_dtbuf(tmpbuf, num_post, datatype);
+  lwgrp_memcpy(buf_pre, tmpbuf,  num_post, datatype, comm_rank, comm);
+  lwgrp_memcpy(recvbuf, buf_post, num_pre, datatype, comm_rank, comm);
+
+  /* free the temporary buffer */
+  lwgrp_type_dtbuf_free(&tmpbuf, datatype, __FILE__, __LINE__);
+
+  return rc;
 }
 
 /* execute an alltoall using Bruck's algorithm */
@@ -209,44 +354,34 @@ int lwgrp_logring_alltoall_brucks(
   const lwgrp_logring* list)
 {
   int i;
+  int rc = LWGRP_SUCCESS;
 
   /* get ring info */
   MPI_Comm comm  = group->comm;
+  int comm_rank  = group->comm_rank;
   int rank       = group->group_rank;
   int ranks      = group->group_size;
 
-  /* get extent of datatype so we can allocate space */
-  MPI_Aint lb, extent;
-  MPI_Type_get_extent(datatype, &lb, &extent);
-
-  /* get true extent of datatype so we can allocate space */
-  MPI_Aint true_lb, true_extent;
-  MPI_Type_get_true_extent(datatype, &true_lb, &true_extent);
-
-  /* compute size of datatype */
-  size_t size = (size_t) true_extent * num;
-  if (size <= 0) {
-    return 0;
-  }
-
   /* TODO: feels like some of these memory copies could be avoided */
 
-  int bufsize = size * ranks;
-  char* send_data = (char*) malloc(bufsize);
-  char* recv_data = (char*) malloc(bufsize);
-  char* tmp_data  = (char*) malloc(bufsize);
+  void* send_data = lwgrp_type_dtbuf_alloc(ranks, datatype, __FILE__, __LINE__);
+  void* recv_data = lwgrp_type_dtbuf_alloc(ranks, datatype, __FILE__, __LINE__);
+  void* tmp_data  = lwgrp_type_dtbuf_alloc(ranks, datatype, __FILE__, __LINE__);
 
-  char* tmp_ptr  = tmp_data  - true_lb;
-
-  /* copy our send data to our receive buffer, and rotate it so our own rank is at the top */
-  const char* inputbuf = (const char*) sendbuf;
+  /* copy our send data to our receive buffer, and rotate it so our own
+   * rank is at the top */
+  const void* inputbuf = sendbuf;
 #if MPI_VERSION >=2
   if (sendbuf == MPI_IN_PLACE) {
-    inputbuf = (const char*) recvbuf;
+    inputbuf = (const void*) recvbuf;
   }
 #endif
-  lwgrp_memcpy(tmp_ptr, inputbuf + rank * extent * num, (ranks - rank) * num, datatype, rank, comm);
-  lwgrp_memcpy(tmp_ptr + (ranks - rank) * extent * num, inputbuf, rank * num, datatype, rank, comm);
+  int num_pre  = num * rank;
+  int num_post = num * (ranks - rank);
+  void* buf_pre  = lwgrp_type_dtbuf_from_dtbuf(inputbuf, num_pre, datatype);
+  void* buf_post = lwgrp_type_dtbuf_from_dtbuf(tmp_data, num_post, datatype);
+  lwgrp_memcpy(tmp_data, buf_pre, num_post, datatype, comm_rank, comm);
+  lwgrp_memcpy(buf_post, inputbuf, num_pre, datatype, comm_rank, comm);
 
   /* now run through Bruck's index algorithm to exchange data */
   MPI_Request request[2];
@@ -260,28 +395,36 @@ int lwgrp_logring_alltoall_brucks(
 
     /* pack our data to send and count number of bytes */
     int send_count = 0;
-    char* send_ptr = send_data - true_lb;
     for (i = 0; i < ranks; i++) {
       int mask = (i & step);
       if (mask) {
-        lwgrp_memcpy(send_ptr, tmp_ptr + i * num * extent, num, datatype, rank, comm);
-        send_ptr += num * extent;
+        void* send_ptr = lwgrp_type_dtbuf_from_dtbuf(send_data, send_count, datatype);
+        void* tmp_ptr  = lwgrp_type_dtbuf_from_dtbuf(tmp_data,  i * num,    datatype);
+        lwgrp_memcpy(send_ptr, tmp_ptr, num, datatype, comm_rank, comm);
         send_count += num;
       }
     }
 
     /* exchange messages */
-    MPI_Irecv(recv_data, send_count, datatype, src, LWGRP_MSG_TAG_0, comm, &request[0]);
-    MPI_Isend(send_data, send_count, datatype, dst, LWGRP_MSG_TAG_0, comm, &request[1]);
+    MPI_Irecv(
+      recv_data, send_count, datatype, src, LWGRP_MSG_TAG_0,
+      comm, &request[0]
+    );
+    MPI_Isend(
+      send_data, send_count, datatype, dst, LWGRP_MSG_TAG_0,
+      comm, &request[1]
+    );
     MPI_Waitall(2, request, status);
 
     /* unpack received data into our buffer */
-    char* recv_ptr = recv_data - true_lb;
+    int recv_count = 0;
     for (i = 0; i < ranks; i++) {
       int mask = (i & step);
       if (mask) {
-        lwgrp_memcpy(tmp_ptr + i * num * extent, recv_ptr, num, datatype, rank, comm);
-        recv_ptr += num * extent;
+        void* recv_ptr = lwgrp_type_dtbuf_from_dtbuf(recv_data, recv_count, datatype);
+        void* tmp_ptr  = lwgrp_type_dtbuf_from_dtbuf(tmp_data,  i * num,    datatype);
+        lwgrp_memcpy(tmp_ptr, recv_ptr, num, datatype, comm_rank, comm);
+        recv_count += num;
       }
     }
 
@@ -290,19 +433,28 @@ int lwgrp_logring_alltoall_brucks(
     step <<= 1;
   }
 
-  /* copy our data to our receive buffer, and rotate it back so our own rank is in its proper position */
-  lwgrp_memcpy(send_data - true_lb, tmp_data - true_lb + (rank + 1) * num * extent, (ranks - rank - 1) * num, datatype, rank, comm);
-  lwgrp_memcpy(send_data - true_lb + (ranks - rank - 1) * num * extent, tmp_data - true_lb, (rank + 1) * num, datatype, rank, comm);
+  /* copy our data to our receive buffer, and rotate it back so our own
+   * rank is in its proper position */
+  int num_pre2  = num * (rank + 1);
+  int num_post2 = num * (ranks - rank - 1);
+  void* buf_pre2  = lwgrp_type_dtbuf_from_dtbuf(tmp_data,  num_pre2, datatype);
+  void* buf_post2 = lwgrp_type_dtbuf_from_dtbuf(send_data, num_post2, datatype);
+  lwgrp_memcpy(send_data, buf_pre2, num_post2, datatype, comm_rank, comm);
+  lwgrp_memcpy(buf_post2, tmp_data, num_pre2,  datatype, comm_rank, comm);
+
+  /* elements are in reverse order, so flip them around */
   for (i = 0; i < ranks; i++) {
-    lwgrp_memcpy((char*)recvbuf + i * num * extent, send_data - true_lb + (ranks - i - 1) * num * extent, num, datatype, rank, comm);
+    void* buf_dst = lwgrp_type_dtbuf_from_dtbuf(recvbuf, i * num, datatype);
+    void* buf_src = lwgrp_type_dtbuf_from_dtbuf(send_data, (ranks - i - 1) * num, datatype);
+    lwgrp_memcpy(buf_dst, buf_src, num, datatype, comm_rank, comm);
   }
 
   /* free off our internal data structures */
-  lwgrp_free(&tmp_data);
-  lwgrp_free(&recv_data);
-  lwgrp_free(&send_data);
+  lwgrp_type_dtbuf_free(&tmp_data,  datatype, __FILE__, __LINE__);
+  lwgrp_type_dtbuf_free(&recv_data, datatype, __FILE__, __LINE__);
+  lwgrp_type_dtbuf_free(&send_data, datatype, __FILE__, __LINE__);
 
-  return 0;
+  return rc;
 }
 
 int lwgrp_logring_alltoallv_linear(
@@ -311,7 +463,11 @@ int lwgrp_logring_alltoallv_linear(
   MPI_Datatype datatype, const lwgrp_ring* group, const lwgrp_logring* list)
 {
   /* this is really implemented with the ring, so just call that */
-  int rc = lwgrp_ring_alltoallv_linear(sendbuf, sendcounts, senddispls, recvbuf, recvcounts, recvdispls, datatype, group);
+  int rc = lwgrp_ring_alltoallv_linear(
+    sendbuf, sendcounts, senddispls,
+    recvbuf, recvcounts, recvdispls,
+    datatype, group
+  );
   return rc;
 }
 
@@ -332,7 +488,10 @@ int lwgrp_logring_double_exscan(
   int rc = LWGRP_SUCCESS;
   lwgrp_chain chain;
   lwgrp_chain_build_from_ring(group, &chain);
-  rc = lwgrp_chain_double_exscan(sendleft, recvright, sendright, recvleft, count, type, op, &chain);
+  rc = lwgrp_chain_double_exscan(
+    sendleft, recvright, sendright, recvleft, count, type, op,
+    &chain
+  );
   lwgrp_chain_free(&chain);
   return rc;
 }
@@ -354,7 +513,10 @@ int lwgrp_logring_allreduce(
   lwgrp_logchain logchain;
   lwgrp_logchain_build_from_logring(group, list, &logchain);
 
-  rc = lwgrp_logchain_allreduce(sendbuf, recvbuf, count, type, op, &chain, &logchain);
+  rc = lwgrp_logchain_allreduce(
+    sendbuf, recvbuf, count, type, op,
+    &chain, &logchain
+  );
 
   lwgrp_logchain_free(&logchain);
   lwgrp_chain_free(&chain);
@@ -373,19 +535,28 @@ int lwgrp_logring_reduce(
 {
   int rc = LWGRP_SUCCESS;
 
+  /* create a chain from the ring */
   lwgrp_chain chain;
   lwgrp_chain_build_from_ring(group, &chain);
 
+  /* create a logchain from the logring */
   lwgrp_logchain logchain;
   lwgrp_logchain_build_from_logring(group, list, &logchain);
 
-  rc = lwgrp_logchain_reduce(sendbuf, recvbuf, count, type, op, root, &chain, &logchain);
+  /* hand off to the logchain reduce */
+  rc = lwgrp_logchain_reduce(
+    sendbuf, recvbuf, count, type, op, root,
+    &chain, &logchain
+  );
 
+  /* free the logchain and chain */
   lwgrp_logchain_free(&logchain);
   lwgrp_chain_free(&chain);
+
   return rc;
 }
 
+/* left-to-right inclusive scan */
 int lwgrp_logring_scan(
   const void* inbuf,
   void* outbuf,
@@ -406,14 +577,15 @@ int lwgrp_logring_scan(
     MPI_Reduce_local((void*)inbuf, outbuf, count, type, op);
   } else {
     /* for rank 0, just copy data over */
-    int rank = group->comm_rank;
+    int comm_rank = group->comm_rank;
     MPI_Comm comm = group->comm;
-    lwgrp_memcpy(outbuf, inbuf, count, type, rank, comm);
+    lwgrp_memcpy(outbuf, inbuf, count, type, comm_rank, comm);
   }
 
   return rc;
 }
 
+/* left-to-right exclusive scan */
 int lwgrp_logring_exscan(
   const void* inbuf,
   void* outbuf,
@@ -426,25 +598,16 @@ int lwgrp_logring_exscan(
   int rc = LWGRP_SUCCESS;
 
   /* allocate a temporary buffer to hold right-to-left result */
-  MPI_Aint true_lb, true_extent;
-  MPI_Type_get_true_extent(type, &true_lb, &true_extent);
-  void* scratch = NULL;
-  size_t scratch_size = count * true_extent;
-  if (scratch_size > 0) {
-    scratch = malloc(scratch_size);
-    if (scratch == 0) {
-      /* error */
-    }
-  }
-  char* tmpbuf = (char*)scratch - true_lb;
+  void* tmpbuf = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
 
   /* delegate work to double scan operation */
-  rc = lwgrp_logring_double_exscan(inbuf, tmpbuf, inbuf, outbuf, count, type, op, group, list);
+  rc = lwgrp_logring_double_exscan(
+    inbuf, tmpbuf, inbuf, outbuf, count, type, op,
+    group, list
+  );
 
   /* free our temporary buffer */
-  if (scratch != NULL) {
-    free(scratch);
-  }
+  lwgrp_type_dtbuf_free(&tmpbuf, type, __FILE__, __LINE__);
 
   return rc;
 }

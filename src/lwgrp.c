@@ -12,6 +12,7 @@
 
 #include "mpi.h"
 #include "lwgrp.h"
+#include "lwgrp_internal.h"
 
 /* Based on "Exascale Algorithms for Generalized MPI_Comm_split",
  * EuroMPI 2011, Adam Moody, Dong H. Ahn, and Bronis R. de Supinkski
@@ -429,8 +430,8 @@ static int lwgrp_logchain_init(int ranks, lwgrp_logchain* list)
   int* left_list  = NULL;
   int* right_list = NULL;
   if (list_size > 0) {
-    left_list  = (int*) malloc(list_size * sizeof(int));
-    right_list = (int*) malloc(list_size * sizeof(int));
+    left_list  = (int*) lwgrp_malloc(list_size * sizeof(int), sizeof(int), __FILE__, __LINE__);
+    right_list = (int*) lwgrp_malloc(list_size * sizeof(int), sizeof(int), __FILE__, __LINE__);
     if (left_list == NULL || right_list == NULL) {
       /* TODO: fail */
     }

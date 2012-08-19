@@ -531,7 +531,7 @@ int lwgrp_chain_double_exscan(
   lwgrp_type_dtbuf_free(&temprecvright, type, __FILE__, __LINE__);
   lwgrp_type_dtbuf_free(&temprecvleft,  type, __FILE__, __LINE__);
   lwgrp_type_dtbuf_free(&tempsendright, type, __FILE__, __LINE__);
-  lwgrp_type_dtbuf_free(&temprecvleft,  type, __FILE__, __LINE__);
+  lwgrp_type_dtbuf_free(&tempsendleft,  type, __FILE__, __LINE__);
 
   return LWGRP_SUCCESS; 
 }

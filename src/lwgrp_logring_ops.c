@@ -179,7 +179,6 @@ int lwgrp_logring_allgather_brucks(
 
   /* get ring info */
   MPI_Comm comm  = group->comm;
-  int comm_rank  = group->comm_rank;
   int rank       = group->group_rank;
   int ranks      = group->group_size;
 
@@ -198,7 +197,7 @@ int lwgrp_logring_allgather_brucks(
     );
   }
 #endif
-  lwgrp_memcpy(tmpbuf, inputbuf, num, datatype, comm_rank, comm);
+  lwgrp_type_dtbuf_memcpy(tmpbuf, inputbuf, num, datatype);
 
   /* execute the allgather operation */
   MPI_Request request[2];
@@ -254,8 +253,8 @@ int lwgrp_logring_allgather_brucks(
   void* buf_post = lwgrp_type_dtbuf_from_dtbuf(
     tmpbuf, num_post, datatype
   );
-  lwgrp_memcpy(buf_pre, tmpbuf,  num_post, datatype, comm_rank, comm);
-  lwgrp_memcpy(recvbuf, buf_post, num_pre, datatype, comm_rank, comm);
+  lwgrp_type_dtbuf_memcpy(buf_pre, tmpbuf,  num_post, datatype);
+  lwgrp_type_dtbuf_memcpy(recvbuf, buf_post, num_pre, datatype);
 
   /* free the temporary buffer */
   lwgrp_type_dtbuf_free(&tmpbuf, datatype, __FILE__, __LINE__);
@@ -278,7 +277,6 @@ int lwgrp_logring_allgatherv_brucks(
 
   /* get ring info */
   MPI_Comm comm  = group->comm;
-  int comm_rank  = group->comm_rank;
   int rank       = group->group_rank;
   int ranks      = group->group_size;
 
@@ -307,7 +305,7 @@ int lwgrp_logring_allgatherv_brucks(
     );
   }
 #endif
-  lwgrp_memcpy(tmpbuf, inputbuf, num, datatype, comm_rank, comm);
+  lwgrp_type_dtbuf_memcpy(tmpbuf, inputbuf, num, datatype);
 
   /* execute the allgather operation */
   MPI_Request request[2];
@@ -372,8 +370,8 @@ int lwgrp_logring_allgatherv_brucks(
   void* buf_post = lwgrp_type_dtbuf_from_dtbuf(
     tmpbuf, num_post, datatype
   );
-  lwgrp_memcpy(buf_pre, tmpbuf,  num_post, datatype, comm_rank, comm);
-  lwgrp_memcpy(recvbuf, buf_post, num_pre, datatype, comm_rank, comm);
+  lwgrp_type_dtbuf_memcpy(buf_pre, tmpbuf,  num_post, datatype);
+  lwgrp_type_dtbuf_memcpy(recvbuf, buf_post, num_pre, datatype);
 
   /* free the temporary buffer */
   lwgrp_type_dtbuf_free(&tmpbuf, datatype, __FILE__, __LINE__);
@@ -395,7 +393,6 @@ int lwgrp_logring_alltoall_brucks(
 
   /* get ring info */
   MPI_Comm comm  = group->comm;
-  int comm_rank  = group->comm_rank;
   int rank       = group->group_rank;
   int ranks      = group->group_size;
 
@@ -417,8 +414,8 @@ int lwgrp_logring_alltoall_brucks(
   int num_post = num * (ranks - rank);
   void* buf_pre  = lwgrp_type_dtbuf_from_dtbuf(inputbuf, num_pre, datatype);
   void* buf_post = lwgrp_type_dtbuf_from_dtbuf(tmp_data, num_post, datatype);
-  lwgrp_memcpy(tmp_data, buf_pre, num_post, datatype, comm_rank, comm);
-  lwgrp_memcpy(buf_post, inputbuf, num_pre, datatype, comm_rank, comm);
+  lwgrp_type_dtbuf_memcpy(tmp_data, buf_pre, num_post, datatype);
+  lwgrp_type_dtbuf_memcpy(buf_post, inputbuf, num_pre, datatype);
 
   /* now run through Bruck's index algorithm to exchange data */
   MPI_Request request[2];
@@ -437,7 +434,7 @@ int lwgrp_logring_alltoall_brucks(
       if (mask) {
         void* send_ptr = lwgrp_type_dtbuf_from_dtbuf(send_data, send_count, datatype);
         void* tmp_ptr  = lwgrp_type_dtbuf_from_dtbuf(tmp_data,  i * num,    datatype);
-        lwgrp_memcpy(send_ptr, tmp_ptr, num, datatype, comm_rank, comm);
+        lwgrp_type_dtbuf_memcpy(send_ptr, tmp_ptr, num, datatype);
         send_count += num;
       }
     }
@@ -460,7 +457,7 @@ int lwgrp_logring_alltoall_brucks(
       if (mask) {
         void* recv_ptr = lwgrp_type_dtbuf_from_dtbuf(recv_data, recv_count, datatype);
         void* tmp_ptr  = lwgrp_type_dtbuf_from_dtbuf(tmp_data,  i * num,    datatype);
-        lwgrp_memcpy(tmp_ptr, recv_ptr, num, datatype, comm_rank, comm);
+        lwgrp_type_dtbuf_memcpy(tmp_ptr, recv_ptr, num, datatype);
         recv_count += num;
       }
     }
@@ -476,14 +473,14 @@ int lwgrp_logring_alltoall_brucks(
   int num_post2 = num * (ranks - rank - 1);
   void* buf_pre2  = lwgrp_type_dtbuf_from_dtbuf(tmp_data,  num_pre2, datatype);
   void* buf_post2 = lwgrp_type_dtbuf_from_dtbuf(send_data, num_post2, datatype);
-  lwgrp_memcpy(send_data, buf_pre2, num_post2, datatype, comm_rank, comm);
-  lwgrp_memcpy(buf_post2, tmp_data, num_pre2,  datatype, comm_rank, comm);
+  lwgrp_type_dtbuf_memcpy(send_data, buf_pre2, num_post2, datatype);
+  lwgrp_type_dtbuf_memcpy(buf_post2, tmp_data, num_pre2,  datatype);
 
   /* elements are in reverse order, so flip them around */
   for (i = 0; i < ranks; i++) {
     void* buf_dst = lwgrp_type_dtbuf_from_dtbuf(recvbuf, i * num, datatype);
     void* buf_src = lwgrp_type_dtbuf_from_dtbuf(send_data, (ranks - i - 1) * num, datatype);
-    lwgrp_memcpy(buf_dst, buf_src, num, datatype, comm_rank, comm);
+    lwgrp_type_dtbuf_memcpy(buf_dst, buf_src, num, datatype);
   }
 
   /* free off our internal data structures */
@@ -598,9 +595,7 @@ int lwgrp_logring_scan_recursive(
     MPI_Reduce_local((void*)inbuf, outbuf, count, type, op);
   } else {
     /* for rank 0, just copy data over */
-    int comm_rank = group->comm_rank;
-    MPI_Comm comm = group->comm;
-    lwgrp_memcpy(outbuf, inbuf, count, type, comm_rank, comm);
+    lwgrp_type_dtbuf_memcpy(outbuf, inbuf, count, type);
   }
 
   return rc;

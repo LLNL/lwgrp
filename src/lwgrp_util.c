@@ -13,6 +13,8 @@
 #include "lwgrp.h"
 #include "lwgrp_internal.h"
 
+static MPI_Comm lwgrp_comm_self = MPI_COMM_NULL;
+
 /* given a pointer to the start of a datatype buffer, return pointer to
  * datatype buffer for the start of the count-th element */
 void* lwgrp_type_dtbuf_from_dtbuf(const void* dtbuf, int count, MPI_Datatype type)
@@ -35,11 +37,6 @@ void* lwgrp_type_dtbuf_from_membuf(const void* membuf, int count, MPI_Datatype t
 
   char* ptr = (char*)membuf -lb + count * extent;
   return ptr;
-}
-
-/* returns the size of a buffer needed to hold count consecutive items */
-size_t lwgrp_type_membuf_size(int count, MPI_Datatype type)
-{
 }
 
 /* allocate a buffer large enough to hold count consecutive items,
@@ -85,6 +82,24 @@ int lwgrp_type_dtbuf_free(void** dtbuf_ptr, MPI_Datatype type, const char* file,
   return LWGRP_SUCCESS;
 }
 
+void lwgrp_type_dtbuf_memcpy(void* dst, const void* src, int count, MPI_Datatype type)
+{
+    /* TODO: need to free this somehow */
+
+    /* dup MPI_COMM_SELF which we need to do the self-sendrecv */
+    if (lwgrp_comm_self == MPI_COMM_NULL) {
+      MPI_Comm_dup(MPI_COMM_SELF, &lwgrp_comm_self);
+    }
+
+    /* do the memcpy with a self sendrecv, MPI please provide a memcpy */
+    MPI_Status status[2];
+    MPI_Sendrecv(
+      (void*)src, count, type, 0, LWGRP_MSG_TAG_0,
+             dst, count, type, 0, LWGRP_MSG_TAG_0,
+      lwgrp_comm_self, status
+    );
+}
+
 
 /* malloc with some checks on size and the returned pointer, along with
  * future support for alignment, if size <= 0, malloc is not called and
@@ -127,16 +142,6 @@ void lwgrp_free(void* p)
     free(*ptr);
     *ptr = NULL;
   }
-}
-
-void lwgrp_memcpy(void* dst, const void* src, int count, MPI_Datatype type, int rank, MPI_Comm comm)
-{
-    MPI_Status status[2];
-    MPI_Sendrecv(
-      (void*)src, count, type, rank, LWGRP_MSG_TAG_0,
-             dst, count, type, rank, LWGRP_MSG_TAG_0,
-      comm, status
-    );
 }
 
 /* find largest power of two that fits within group_ranks */

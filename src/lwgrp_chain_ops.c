@@ -448,7 +448,6 @@ int lwgrp_chain_double_exscan_recursive(
 
   /* get chain info */
   MPI_Comm comm  = group->comm;
-  int comm_rank  = group->comm_rank;
   int left_rank  = group->comm_left;
   int right_rank = group->comm_right;
   int rank       = group->group_rank;
@@ -462,14 +461,14 @@ int lwgrp_chain_double_exscan_recursive(
 
   /* intialize send buffers */
   if (sendleft != MPI_IN_PLACE) {
-    lwgrp_memcpy(tempsendleft, sendleft, count, type, comm_rank, comm);
+    lwgrp_type_dtbuf_memcpy(tempsendleft, sendleft, count, type);
   } else {
-    lwgrp_memcpy(tempsendleft, recvleft, count, type, comm_rank, comm);
+    lwgrp_type_dtbuf_memcpy(tempsendleft, recvleft, count, type);
   }
   if (sendright != MPI_IN_PLACE) {
-    lwgrp_memcpy(tempsendright, sendright, count, type, comm_rank, comm);
+    lwgrp_type_dtbuf_memcpy(tempsendright, sendright, count, type);
   } else {
-    lwgrp_memcpy(tempsendright, recvright, count, type, comm_rank, comm);
+    lwgrp_type_dtbuf_memcpy(tempsendright, recvright, count, type);
   }
 
   /* execute double, exclusive scan,
@@ -525,7 +524,7 @@ int lwgrp_chain_double_exscan_recursive(
       if (recvleft_initialized) {
         MPI_Reduce_local(temprecvleft, recvleft, count, type, op);
       } else {
-        lwgrp_memcpy(recvleft, temprecvleft, count, type, comm_rank, comm);
+        lwgrp_type_dtbuf_memcpy(recvleft, temprecvleft, count, type);
         recvleft_initialized = 1;
       }
     }
@@ -539,7 +538,7 @@ int lwgrp_chain_double_exscan_recursive(
       if (recvright_initialized) {
         MPI_Reduce_local(temprecvright, recvright, count, type, op);
       } else {
-        lwgrp_memcpy(recvright, temprecvright, count, type, comm_rank, comm);
+        lwgrp_type_dtbuf_memcpy(recvright, temprecvright, count, type);
         recvright_initialized = 1;
       }
     }
@@ -629,11 +628,7 @@ int lwgrp_chain_allreduce_recursive(
 
   /* copy our data into the receive buffer */
   if (sendbuf != MPI_IN_PLACE) {
-    MPI_Sendrecv(
-      (void*)sendbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-             recvbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-      comm, status
-    );
+    lwgrp_type_dtbuf_memcpy(recvbuf, sendbuf, count, type);
   }
 
   /* adjust for non-zero lower bounds */
@@ -691,11 +686,7 @@ int lwgrp_chain_allreduce_recursive(
            * results for non-commutative ops, since out = in + out and
            * the higher order data is in tempbuf */
           MPI_Reduce_local(recvbuf, tempbuf, count, type, op);
-          MPI_Sendrecv(
-            (void*)tempbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-                   recvbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-            comm, status
-          );
+          lwgrp_type_dtbuf_memcpy(recvbuf, tempbuf, count, type);
         }
       }
 
@@ -797,7 +788,6 @@ int lwgrp_chain_allreduce_recursive_pow2(
 
   /* get our rank within comm */
   MPI_Comm comm = group->comm;
-  int comm_rank = group->comm_rank;
   int rank      = group->group_rank;
   int ranks     = group->group_size;
 
@@ -834,11 +824,7 @@ int lwgrp_chain_allreduce_recursive_pow2(
        * so scratchbuf = resultbuf + scratchbuf,
        * then copy result back to resultbuf for sending in next round */
       MPI_Reduce_local(resultbuf, scratchbuf, count, type, op);
-      MPI_Sendrecv(
-        scratchbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-        resultbuf,  count, type, comm_rank, LWGRP_MSG_TAG_0,
-        comm, status
-      );
+      lwgrp_type_dtbuf_memcpy(resultbuf, scratchbuf, count, type);
     }
 
     /* prepare for next iteration */

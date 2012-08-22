@@ -15,7 +15,7 @@
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
 
-int lwgrp_logchain_allreduce(
+int lwgrp_logchain_allreduce_recursive(
   const void* sendbuf,
   void* recvbuf,
   int count,
@@ -147,7 +147,7 @@ int lwgrp_logchain_allreduce(
 
   /* power of two reduce */
   if (! odd_rank_out) {
-    lwgrp_logchain_allreduce_pow2(recvbuf, tempbuf, count, type, op, pow2_group, list, left_index, right_index);
+    lwgrp_logchain_allreduce_recursive_pow2(recvbuf, tempbuf, count, type, op, pow2_group, list, left_index, right_index);
   }
 
   /* send message back to odd ranks out */
@@ -172,7 +172,7 @@ int lwgrp_logchain_allreduce(
 /* assumes the chain has an exact power of two number of members,
  * input should be in resultbuf and output will be stored there,
  * scratchbuf should be scratch space */
-int lwgrp_logchain_allreduce_pow2(
+int lwgrp_logchain_allreduce_recursive_pow2(
   void* resultbuf,
   void* scratchbuf,
   int count,
@@ -236,7 +236,7 @@ int lwgrp_logchain_allreduce_pow2(
   return LWGRP_SUCCESS;
 }
 
-int lwgrp_logchain_reduce(
+int lwgrp_logchain_reduce_recursive(
   const void* sendbuf,
   void* recvbuf,
   int count,
@@ -262,12 +262,14 @@ int lwgrp_logchain_reduce(
   }
 
   /* execute the allreduce */
-  lwgrp_logchain_allreduce(sendbuf, tempbuf, count, type, op, group, list);
+  int rc = lwgrp_logchain_allreduce_recursive(
+    sendbuf, tempbuf, count, type, op, group, list
+  );
 
   /* free our scratch space */
   lwgrp_type_dtbuf_free(&buf, type, __FILE__, __LINE__);
 
-  return LWGRP_SUCCESS; 
+  return rc; 
 }
 
 #endif /* MPI >= v2.2 */

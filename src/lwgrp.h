@@ -144,13 +144,13 @@ int lwgrp_chain_split_bin(
 );
 
 /* execute a barrier over the chain */
-int lwgrp_chain_barrier(
+int lwgrp_chain_barrier_dissemination(
   const lwgrp_chain* group /* IN  - group (handle) */
 );
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
 
-int lwgrp_chain_double_exscan(
+int lwgrp_chain_double_exscan_recursive(
   const void* sendleft,    /* IN  - input buffer for right-to-left exscan */
   void* recvright,         /* OUT - output buffer for right-to-left exscan */
   const void* sendright,   /* IN  - input buffer for left-to-right excan */
@@ -163,7 +163,7 @@ int lwgrp_chain_double_exscan(
 );
 
 /* execute an allreduce over the chain */
-int lwgrp_chain_allreduce(
+int lwgrp_chain_allreduce_recursive(
   const void* inbuf,       /* IN  - input buffer for reduction */
   void* outbuf,            /* OUT - output buffer for reduction */
   int count,               /* IN  - number of elements in buffer
@@ -176,7 +176,7 @@ int lwgrp_chain_allreduce(
 #endif /* MPI >= v2.2 */
 
 /* executes an allgather-like operation of a single integer */
-int lwgrp_chain_allgather_int(
+int lwgrp_chain_allgather_brucks_int(
   int sendint,
   int recvbuf[],
   const lwgrp_chain* group
@@ -188,18 +188,7 @@ int lwgrp_chain_allgather_int(
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
 
-int lwgrp_logchain_allreduce(
-  const void* inbuf,         /* IN  - input buffer for reduction */
-  void* outbuf,              /* OUT - output buffer for reduction */
-  int count,                 /* IN  - number of elements in buffer
-                              *       (non-negative integer) */
-  MPI_Datatype type,         /* IN  - buffer datatype (handle) */
-  MPI_Op op,                 /* IN  - reduction operation (handle) */
-  const lwgrp_chain* group,  /* IN  - group (handle) */
-  const lwgrp_logchain* list /* IN  - list (handle) */
-);
-
-int lwgrp_logchain_reduce(
+int lwgrp_logchain_reduce_recursive(
   const void* inbuf,         /* IN  - input buffer for reduction */
   void* outbuf,              /* OUT - output buffer for reduction */
   int count,                 /* IN  - number of elements in buffer
@@ -207,6 +196,17 @@ int lwgrp_logchain_reduce(
   MPI_Datatype type,         /* IN  - buffer datatype (handle) */
   MPI_Op op,                 /* IN  - reduction operation (handle) */
   int root,                  /* IN  - rank of root process (integer) */
+  const lwgrp_chain* group,  /* IN  - group (handle) */
+  const lwgrp_logchain* list /* IN  - list (handle) */
+);
+
+int lwgrp_logchain_allreduce_recursive(
+  const void* inbuf,         /* IN  - input buffer for reduction */
+  void* outbuf,              /* OUT - output buffer for reduction */
+  int count,                 /* IN  - number of elements in buffer
+                              *       (non-negative integer) */
+  MPI_Datatype type,         /* IN  - buffer datatype (handle) */
+  MPI_Op op,                 /* IN  - reduction operation (handle) */
   const lwgrp_chain* group,  /* IN  - group (handle) */
   const lwgrp_logchain* list /* IN  - list (handle) */
 );
@@ -251,12 +251,12 @@ int lwgrp_ring_alltoallv_linear(
  * --------------------------------- */
 
 /* execute a barrier over the chain */
-int lwgrp_logring_barrier(
+int lwgrp_logring_barrier_dissemination(
   const lwgrp_ring* group,  /* IN  - group (handle) */
   const lwgrp_logring* list /* IN  - list (handle) */
 );
 
-int lwgrp_logring_bcast(
+int lwgrp_logring_bcast_binomial(
   void* buffer,             /* IN  - send buffer (on root), receive buffer otherwise */
   int count,                /* IN  - number of elements in buffer (non-negative integer) */
   MPI_Datatype datatype,    /* IN  - data type of buffer elements (handle) */
@@ -325,29 +325,7 @@ int lwgrp_logring_alltoallv_linear(
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
 
-int lwgrp_logring_double_exscan(
-  const void* sendleft,     /* IN  - input buffer for right-to-left exscan */
-  void* recvright,          /* OUT - output buffer for right-to-left exscan */
-  const void* sendright,    /* IN  - input buffer for left-to-right excan */
-  void* recvleft,           /* OUT - output buffer for left-to-right exscan */
-  int count,                /* IN  - number of elements in buffer (non-negative integer) */
-  MPI_Datatype type,        /* IN  - buffer datatype (handle) */
-  MPI_Op op,                /* IN  - reduction operation (handle) */
-  const lwgrp_ring* group,  /* IN  - group (handle) */
-  const lwgrp_logring* list /* IN  - list (handle) */
-);
-
-int lwgrp_logring_allreduce(
-  const void* inbuf,        /* IN  - input buffer for reduction */
-  void* outbuf,             /* OUT - output buffer for reduction */
-  int count,                /* IN  - number of elements in buffer (non-negative integer) */
-  MPI_Datatype type,        /* IN  - buffer datatype (handle) */
-  MPI_Op op,                /* IN  - reduction operation (handle) */
-  const lwgrp_ring* group,  /* IN  - group (handle) */
-  const lwgrp_logring* list /* IN  - list (handle) */
-);
-
-int lwgrp_logring_reduce(
+int lwgrp_logring_reduce_recursive(
   const void* inbuf,         /* IN  - input buffer for reduction */
   void* outbuf,              /* OUT - output buffer for reduction */
   int count,                 /* IN  - number of elements in buffer (non-negative integer) */
@@ -358,7 +336,7 @@ int lwgrp_logring_reduce(
   const lwgrp_logring* list  /* IN  - list (handle) */
 );
 
-int lwgrp_logring_scan(
+int lwgrp_logring_allreduce_recursive(
   const void* inbuf,        /* IN  - input buffer for reduction */
   void* outbuf,             /* OUT - output buffer for reduction */
   int count,                /* IN  - number of elements in buffer (non-negative integer) */
@@ -368,9 +346,31 @@ int lwgrp_logring_scan(
   const lwgrp_logring* list /* IN  - list (handle) */
 );
 
-int lwgrp_logring_exscan(
+int lwgrp_logring_scan_recursive(
   const void* inbuf,        /* IN  - input buffer for reduction */
   void* outbuf,             /* OUT - output buffer for reduction */
+  int count,                /* IN  - number of elements in buffer (non-negative integer) */
+  MPI_Datatype type,        /* IN  - buffer datatype (handle) */
+  MPI_Op op,                /* IN  - reduction operation (handle) */
+  const lwgrp_ring* group,  /* IN  - group (handle) */
+  const lwgrp_logring* list /* IN  - list (handle) */
+);
+
+int lwgrp_logring_exscan_recursive(
+  const void* inbuf,        /* IN  - input buffer for reduction */
+  void* outbuf,             /* OUT - output buffer for reduction */
+  int count,                /* IN  - number of elements in buffer (non-negative integer) */
+  MPI_Datatype type,        /* IN  - buffer datatype (handle) */
+  MPI_Op op,                /* IN  - reduction operation (handle) */
+  const lwgrp_ring* group,  /* IN  - group (handle) */
+  const lwgrp_logring* list /* IN  - list (handle) */
+);
+
+int lwgrp_logring_double_exscan_recursive(
+  const void* sendleft,     /* IN  - input buffer for right-to-left exscan */
+  void* recvright,          /* OUT - output buffer for right-to-left exscan */
+  const void* sendright,    /* IN  - input buffer for left-to-right excan */
+  void* recvleft,           /* OUT - output buffer for left-to-right exscan */
   int count,                /* IN  - number of elements in buffer (non-negative integer) */
   MPI_Datatype type,        /* IN  - buffer datatype (handle) */
   MPI_Op op,                /* IN  - reduction operation (handle) */

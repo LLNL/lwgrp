@@ -21,7 +21,11 @@ enum bin_values {
 /* given a specified number of bins, an index into those bins, and a
  * input group, create and return a new group consisting of all ranks
  * belonging to the same bin, runs in O(num_bins * log N) time */
-int lwgrp_ring_split_bin(int num_bins, int my_bin, const lwgrp_ring* in, lwgrp_ring* out)
+int lwgrp_ring_split_bin(
+  int num_bins,
+  int my_bin,
+  const lwgrp_ring* in,
+  lwgrp_ring* out)
 {
   /* With this function, we split the "in" group into up to "num_bins"
    * subgroups.  A process is grouped with all other processes that
@@ -53,7 +57,9 @@ int lwgrp_ring_split_bin(int num_bins, int my_bin, const lwgrp_ring* in, lwgrp_r
 
   /* allocate space for our send and receive buffers */
   int elements = 2 * num_bins + 1;
-  int* bins = (int*) lwgrp_malloc(4 * elements * sizeof(int), sizeof(int), __FILE__, __LINE__);
+  int* bins = (int*) lwgrp_malloc(
+    4 * elements * sizeof(int), sizeof(int), __FILE__, __LINE__
+  );
   if (bins == NULL) {
     /* TODO: fail */
   }
@@ -99,15 +105,27 @@ int lwgrp_ring_split_bin(int num_bins, int my_bin, const lwgrp_ring* in, lwgrp_r
      * inform rank to our right about the rank on our left,
      * recv data from left and send data to the right */
     send_right_bins[rank_index] = left_rank;
-    MPI_Irecv(recv_left_bins,  elements, MPI_INT, left_rank,  LWGRP_MSG_TAG_0, comm, &request[0]);
-    MPI_Isend(send_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[1]);
+    MPI_Irecv(
+      recv_left_bins,  elements, MPI_INT, left_rank,  LWGRP_MSG_TAG_0,
+      comm, &request[0]
+    );
+    MPI_Isend(
+      send_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+      comm, &request[1]
+    );
 
     /* right-to-left shift:
      * inform rank to our left about the rank on our right
      * recv data from right and send data to the left */
     send_left_bins[rank_index] = right_rank;
-    MPI_Irecv(recv_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[2]);
-    MPI_Isend(send_left_bins,  elements, MPI_INT, left_rank,  LWGRP_MSG_TAG_0, comm, &request[3]);
+    MPI_Irecv(
+      recv_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+      comm, &request[2]
+    );
+    MPI_Isend(
+      send_left_bins,  elements, MPI_INT, left_rank,  LWGRP_MSG_TAG_0,
+      comm, &request[3]
+    );
 
     /* wait for all communication to complete */
     MPI_Waitall(4, request, status);
@@ -218,14 +236,22 @@ int lwgrp_ring_alltoallv_linear(
   int src_next, dst_next;
   while (dist < ranks) {
     /* receive data from src */
-    void* recv_ptr = lwgrp_type_dtbuf_from_dtbuf(recvbuf, recvdispls[src], datatype);
+    void* recv_ptr = lwgrp_type_dtbuf_from_dtbuf(
+      recvbuf, recvdispls[src], datatype
+    );
     int recv_count = recvcounts[src];
-    MPI_Irecv(recv_ptr, recv_count, datatype, src, LWGRP_MSG_TAG_0, comm, &request[0]);
+    MPI_Irecv(
+      recv_ptr, recv_count, datatype, src, LWGRP_MSG_TAG_0, comm, &request[0]
+    );
 
     /* send data to dst */
-    void* send_ptr = lwgrp_type_dtbuf_from_dtbuf(sendbuf, senddispls[dst], datatype);
+    void* send_ptr = lwgrp_type_dtbuf_from_dtbuf(
+      sendbuf, senddispls[dst], datatype
+    );
     int send_count = sendcounts[dst];
-    MPI_Isend(send_ptr, send_count, datatype, dst, LWGRP_MSG_TAG_0, comm, &request[1]);
+    MPI_Isend(
+      send_ptr, send_count, datatype, dst, LWGRP_MSG_TAG_0, comm, &request[1]
+    );
 
     /* exchange addresses, send our current src to our current dst, etc */
     MPI_Irecv(&src_next, 1, MPI_INT, src, LWGRP_MSG_TAG_0, comm, &request[2]);

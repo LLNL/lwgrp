@@ -22,7 +22,11 @@ enum bin_values {
 /* given a specified number of bins, an index into those bins, and a
  * input group, create and return a new group consisting of all ranks
  * belonging to the same bin, runs in O(num_bins * log N) time */
-int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp_chain* out)
+int lwgrp_chain_split_bin(
+  int num_bins,
+  int my_bin,
+  const lwgrp_chain* in,
+  lwgrp_chain* out)
 {
   /* With this function, we split the "in" group into up to "num_bins"
    * subgroups.  A process is grouped with all other processes that
@@ -54,7 +58,9 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
 
   /* allocate space for our send and receive buffers */
   int elements = 2 * num_bins + 1;
-  int* bins = (int*) lwgrp_malloc(4 * elements * sizeof(int), sizeof(int), __FILE__, __LINE__);
+  int* bins = (int*) lwgrp_malloc(
+    4 * elements * sizeof(int), sizeof(int), __FILE__, __LINE__
+  );
   if (bins == NULL) {
     /* TODO: fail */
   }
@@ -74,7 +80,8 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
     send_right_bins[i+INDEX_CLOSEST] = MPI_PROC_NULL;
   }
 
-  /* for the bin we are in, set the rank to our rank and set the count to 1 */
+  /* for the bin we are in, set the rank to our rank and set the
+   * count to 1 */
   if (my_bin >= 0) {
     send_left_bins[my_bin_index+INDEX_COUNT]    = 1;
     send_right_bins[my_bin_index+INDEX_COUNT]   = 1;
@@ -98,13 +105,19 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
      * recv his right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* receive right-going data from the left */
-      MPI_Irecv(recv_left_bins, elements, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        recv_left_bins, elements, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
 
       /* inform rank to our left of the rank on our right, and send
        * him our data */
       send_left_bins[rank_index] = right_rank;
-      MPI_Isend(send_left_bins, elements, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        send_left_bins, elements, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
     }
 
@@ -112,13 +125,19 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
      * recv his left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* receive left-going data from the right */
-      MPI_Irecv(recv_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        recv_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
 
       /* inform rank to our right of the rank on our left, and send
        * him our data */
       send_right_bins[rank_index] = left_rank;
-      MPI_Isend(send_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        send_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
     }
 
@@ -127,7 +146,8 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
       MPI_Waitall(k, request, status);
     }
 
-    /* if we have a left partner, merge his data with our right-going data */
+    /* if we have a left partner, merge his data with our
+     * right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* first, make note of the rightmost rank in our bin
        * to the left if we haven't already found one */
@@ -140,8 +160,9 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
         /* add the counts for this bin */
         send_right_bins[i+INDEX_COUNT] += recv_left_bins[i+INDEX_COUNT];
 
-        /* if we haven't already defined the rightmost rank for this bin,
-         * set it to the value defined in the message from the left */
+        /* if we haven't already defined the rightmost rank for this
+         * bin, set it to the value defined in the message from the
+         * left */
         if (send_right_bins[i+INDEX_CLOSEST] == MPI_PROC_NULL) {
           send_right_bins[i+INDEX_CLOSEST] = recv_left_bins[i+INDEX_CLOSEST];
         }
@@ -151,7 +172,8 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
       left_rank = recv_left_bins[rank_index];
     }
 
-    /* if we have a right partner, merge his data with our left-going data */
+    /* if we have a right partner, merge his data with our
+     * left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* first, make note of the leftmost rank in our bin to the
        * right if we haven't already found one */
@@ -177,13 +199,15 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
   }
 
   if (my_bin >= 0) {
-    /* get count of number of ranks in our bin to our left and right sides */
+    /* get count of number of ranks in our bin to our left and
+     * right sides */
     int count_left  = send_right_bins[my_bin_index + INDEX_COUNT] - 1;
     int count_right = send_left_bins[my_bin_index + INDEX_COUNT]  - 1;
 
     /* the number of ranks to our left defines our rank, while we add
      * the number of ranks to our left with the number of ranks to our
-     * right plus ourselves to get the total number of ranks in our bin */
+     * right plus ourselves to get the total number of ranks in our
+     * bin */
     out->comm       = in->comm;
     out->comm_rank  = in->comm_rank;
     out->comm_left  = my_left;
@@ -201,7 +225,7 @@ int lwgrp_chain_split_bin(int num_bins, int my_bin, const lwgrp_chain* in, lwgrp
 }
 
 /* execute a barrier operation on the chain */
-int lwgrp_chain_barrier(const lwgrp_chain* group)
+int lwgrp_chain_barrier_dissemination(const lwgrp_chain* group)
 {
   /* execute double, inclusive scan, one going left-to-right,
    * and another right-to-left */
@@ -219,12 +243,18 @@ int lwgrp_chain_barrier(const lwgrp_chain* group)
      * and recv his right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* receive right-going data from the left */
-      MPI_Irecv(&recv_left, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        &recv_left, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
 
       /* inform rank to our left of the rank on our right,
        * and send him our data */
-      MPI_Isend(&right_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        &right_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
     }
 
@@ -232,12 +262,18 @@ int lwgrp_chain_barrier(const lwgrp_chain* group)
      * and recv his left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* receive left-going data from the right */
-      MPI_Irecv(&recv_right, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        &recv_right, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
 
       /* inform rank to our right of the rank on our left,
        * and send him our data */
-      MPI_Isend(&left_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        &left_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
+        comm, &request[k]
+      );
       k++;
     }
 
@@ -254,8 +290,12 @@ int lwgrp_chain_barrier(const lwgrp_chain* group)
   return LWGRP_SUCCESS; 
 }
 
-/* issues an allgather operation over the processes in the specified group */
-int lwgrp_chain_allgather_int(int sendint, int recvbuf[], const lwgrp_chain* group)
+/* issues an allgather operation over the processes in the
+ * specified group */
+int lwgrp_chain_allgather_brucks_int(
+  int sendint,
+  int recvbuf[],
+  const lwgrp_chain* group)
 {
   MPI_Comm comm = group->comm;
   int rank      = group->group_rank;
@@ -267,7 +307,9 @@ int lwgrp_chain_allgather_int(int sendint, int recvbuf[], const lwgrp_chain* gro
   int scratch_size = 4 * buf_size;
   char* scratch = NULL;
   if (scratch_size > 0) {
-    scratch = (char*) lwgrp_malloc(scratch_size, sizeof(int), __FILE__, __LINE__);
+    scratch = (char*) lwgrp_malloc(
+      scratch_size, sizeof(int), __FILE__, __LINE__
+    );
   }
 
   /* set up pointers to internal data structures */
@@ -288,10 +330,14 @@ int lwgrp_chain_allgather_int(int sendint, int recvbuf[], const lwgrp_chain* gro
   while (left_rank != MPI_PROC_NULL || right_rank != MPI_PROC_NULL) {
     int k = 0;
 
-    /* if we have a left partner, send him all data we know about from on rank on to the right */
+    /* if we have a left partner, send him all data we know about
+     * from on rank on to the right */
     if (left_rank != MPI_PROC_NULL) {
       /* issue receive for data from left partner */
-      MPI_Irecv(recv_left_buf, max_ints, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        recv_left_buf, max_ints, MPI_INT, left_rank,
+        LWGRP_MSG_TAG_0, comm, &request[k]
+      );
       k++;
 
       /* compute the number of elements we'll be sending left */
@@ -305,14 +351,21 @@ int lwgrp_chain_allgather_int(int sendint, int recvbuf[], const lwgrp_chain* gro
       memcpy(send_left_buf+1, recvbuf + rank, left_count * sizeof(int));
 
       /* send the data */
-      MPI_Isend((void*)send_left_buf, (1 + left_count), MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        (void*)send_left_buf, (1 + left_count), MPI_INT, left_rank,
+        LWGRP_MSG_TAG_0, comm, &request[k]
+      );
       k++;
     }
 
-    /* if we have a right partner, send him all data we know about from on rank on to the left */
+    /* if we have a right partner, send him all data we know about
+     * from on rank on to the left */
     if (right_rank != MPI_PROC_NULL) {
       /* issue receive for data from right partner */
-      MPI_Irecv(recv_right_buf, max_ints, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Irecv(
+        recv_right_buf, max_ints, MPI_INT, right_rank,
+        LWGRP_MSG_TAG_0, comm, &request[k]
+      );
       k++;
 
       /* compute the number of elements we'll be sending right */
@@ -328,7 +381,10 @@ int lwgrp_chain_allgather_int(int sendint, int recvbuf[], const lwgrp_chain* gro
       memcpy(send_right_buf+1, recvbuf + right_start, right_count * sizeof(int));
 
       /* send the data */
-      MPI_Isend(send_right_buf, (1 + right_count), MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+      MPI_Isend(
+        send_right_buf, (1 + right_count), MPI_INT, right_rank,
+        LWGRP_MSG_TAG_0, comm, &request[k]
+      );
       k++;
     }
 
@@ -377,7 +433,7 @@ int lwgrp_chain_allgather_int(int sendint, int recvbuf[], const lwgrp_chain* gro
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
 /* execute an left-to-right exclusive scan simultaneously with a
  * right-to-left exclusive scan */
-int lwgrp_chain_double_exscan(
+int lwgrp_chain_double_exscan_recursive(
   const void* sendleft,
   void* recvright,
   const void* sendright,
@@ -539,7 +595,7 @@ int lwgrp_chain_double_exscan(
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
 
-int lwgrp_chain_allreduce(
+int lwgrp_chain_allreduce_recursive(
   const void* sendbuf,
   void* recvbuf,
   int count,
@@ -581,7 +637,9 @@ int lwgrp_chain_allreduce(
   }
 
   /* adjust for non-zero lower bounds */
-  void* tempbuf = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
+  void* tempbuf = lwgrp_type_dtbuf_alloc(
+    count, type, __FILE__, __LINE__
+  );
 
   /* find largest power of two that fits within group_ranks */
   int pow2, log2;
@@ -619,10 +677,15 @@ int lwgrp_chain_allreduce(
       if (rank < cutoff) {
         if (rank & 0x1) {
           /* send reduce result to left */
-          MPI_Send(recvbuf, count, type, left_rank, LWGRP_MSG_TAG_0, comm);
+          MPI_Send(
+            recvbuf, count, type, left_rank, LWGRP_MSG_TAG_0, comm
+          );
         } else {
           /* recv data from odd rank out on right */
-          MPI_Recv(tempbuf, count, type, right_rank, LWGRP_MSG_TAG_0, comm, status);
+          MPI_Recv(
+            tempbuf, count, type, right_rank,
+            LWGRP_MSG_TAG_0, comm, status
+          );
 
           /* we do things in a particular way here to ensure correct
            * results for non-commutative ops, since out = in + out and
@@ -646,18 +709,30 @@ int lwgrp_chain_allreduce(
       /* everyone who has a left neighbor will get a new one */
       int k = 0;
       if (left_rank != MPI_PROC_NULL) {
-        MPI_Irecv(&new_left, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+        MPI_Irecv(
+          &new_left, 1, MPI_INT, left_rank,
+          LWGRP_MSG_TAG_0, comm, &request[k]
+        );
         k++;
 
-        MPI_Isend(&right_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+        MPI_Isend(
+          &right_rank, 1, MPI_INT, left_rank,
+          LWGRP_MSG_TAG_0, comm, &request[k]
+        );
         k++;
       }
       /* everyone but the cutoff rank gets a new right neighbor */
       if (right_rank != MPI_PROC_NULL && rank < cutoff) {
-        MPI_Irecv(&new_right, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+        MPI_Irecv(
+          &new_right, 1, MPI_INT, right_rank,
+          LWGRP_MSG_TAG_0, comm, &request[k]
+        );
         k++;
 
-        MPI_Isend(&left_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+        MPI_Isend(
+          &left_rank, 1, MPI_INT, right_rank,
+          LWGRP_MSG_TAG_0, comm, &request[k]
+        );
         k++;
       }
       if (k > 0) {
@@ -678,17 +753,24 @@ int lwgrp_chain_allreduce(
 
   /* power of two reduce */
   if (! odd_rank_out) {
-    lwgrp_chain_allreduce_pow2(recvbuf, tempbuf, count, type, op, pow2_group);
+    lwgrp_chain_allreduce_recursive_pow2(
+      recvbuf, tempbuf, count, type, op, pow2_group
+    );
   }
 
   /* send message back to odd ranks out */
   if (rank < cutoff) {
       if (rank & 0x1) {
         /* recv result from left rank */
-        MPI_Recv(recvbuf, count, type, left_rank, LWGRP_MSG_TAG_0, comm, status);
+        MPI_Recv(
+          recvbuf, count, type, left_rank,
+          LWGRP_MSG_TAG_0, comm, status
+        );
       } else {
         /* send result to right rank */
-        MPI_Send(recvbuf, count, type, right_rank, LWGRP_MSG_TAG_0, comm);
+        MPI_Send(
+          recvbuf, count, type, right_rank, LWGRP_MSG_TAG_0, comm
+        );
       }
   }
 
@@ -701,7 +783,7 @@ int lwgrp_chain_allreduce(
 /* assumes the chain has an exact power of two number of members,
  * input should be in resultbuf and output will be stored there,
  * scratchbuf should be scratch space */
-int lwgrp_chain_allreduce_pow2(
+int lwgrp_chain_allreduce_recursive_pow2(
   void* resultbuf,
   void* scratchbuf,
   int count,
@@ -773,12 +855,18 @@ int lwgrp_chain_allreduce_pow2(
        * recv his right-going data */
       if (left_rank != MPI_PROC_NULL) {
         /* receive right-going data from the left */
-        MPI_Irecv(&recv_left, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+        MPI_Irecv(
+          &recv_left, 1, MPI_INT, left_rank,
+          LWGRP_MSG_TAG_0, comm, &request[k]
+        );
         k++;
 
         /* inform rank to our left of the rank on our right, and send
          * him our data */
-        MPI_Isend(&right_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+        MPI_Isend(
+          &right_rank, 1, MPI_INT, left_rank,
+          LWGRP_MSG_TAG_0, comm, &request[k]
+        );
         k++;
       }
 
@@ -786,12 +874,18 @@ int lwgrp_chain_allreduce_pow2(
        * recv his left-going data */
       if (right_rank != MPI_PROC_NULL) {
         /* receive left-going data from the right */
-        MPI_Irecv(&recv_right, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+        MPI_Irecv(
+          &recv_right, 1, MPI_INT, right_rank,
+          LWGRP_MSG_TAG_0, comm, &request[k]
+        );
         k++;
 
         /* inform rank to our right of the rank on our left, and send
          * him our data */
-        MPI_Isend(&left_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
+        MPI_Isend(
+          &left_rank, 1, MPI_INT, right_rank,
+          LWGRP_MSG_TAG_0, comm, &request[k]
+        );
         k++;
       }
 

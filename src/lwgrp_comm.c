@@ -85,7 +85,7 @@ int lwgrp_comm_size(
 
 int lwgrp_comm_barrier(const lwgrp_comm* comm)
 {
-  int rc = lwgrp_logring_barrier(&comm->ring, &comm->logring);
+  int rc = lwgrp_logring_barrier_dissemination(&comm->ring, &comm->logring);
   return rc;
 }
 
@@ -96,7 +96,7 @@ int lwgrp_comm_bcast(
   int root,
   const lwgrp_comm* comm)
 {
-  int rc = lwgrp_logring_bcast(
+  int rc = lwgrp_logring_bcast_binomial(
     buffer, count, datatype, root,
     &comm->ring, &comm->logring
   );
@@ -156,7 +156,7 @@ int lwgrp_comm_allreduce(
   MPI_Op op,
   const lwgrp_comm* comm)
 {
-  int rc = lwgrp_logring_allreduce(
+  int rc = lwgrp_logring_allreduce_recursive(
     sendbuf, recvbuf, count, datatype, op,
     &comm->ring, &comm->logring
   );
@@ -172,7 +172,7 @@ int lwgrp_comm_reduce(
   int root,
   const lwgrp_comm* comm)
 {
-  int rc = lwgrp_logring_reduce(
+  int rc = lwgrp_logring_reduce_recursive(
     sendbuf, recvbuf, count, datatype, op, root,
     &comm->ring, &comm->logring
   );
@@ -187,7 +187,7 @@ int lwgrp_comm_scan(
   MPI_Op op,
   const lwgrp_comm* comm)
 {
-  int rc = lwgrp_logring_scan(
+  int rc = lwgrp_logring_scan_recursive(
     sendbuf, recvbuf, count, datatype, op,
     &comm->ring, &comm->logring
   );
@@ -202,7 +202,7 @@ int lwgrp_comm_exscan(
   MPI_Op op,
   const lwgrp_comm* comm)
 {
-  int rc = lwgrp_logring_exscan(
+  int rc = lwgrp_logring_exscan_recursive(
     sendbuf, recvbuf, count, datatype, op,
     &comm->ring, &comm->logring
   );
@@ -219,7 +219,7 @@ int lwgrp_comm_double_exscan(
   MPI_Op op,
   const lwgrp_comm* comm)
 {
-  int rc = lwgrp_logring_double_exscan(
+  int rc = lwgrp_logring_double_exscan_recursive(
     sendleft, recvright, sendright, recvleft,
     count, datatype, op,
     &comm->ring, &comm->logring

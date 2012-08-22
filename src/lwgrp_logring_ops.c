@@ -14,7 +14,11 @@
 #include "lwgrp.h"
 #include "lwgrp_internal.h"
 
-int lwgrp_logring_barrier(
+/* Debra Hensgen, Raphael Finkel, Udi Manber,
+ * "Two algorithms for barrier synchronization",
+ * International Journal of Parallel Programming,
+ * 1988-02-01, Vol 17, Issue 1 */
+int lwgrp_logring_barrier_dissemination(
   const lwgrp_ring* group,
   const lwgrp_logring* list)
 {
@@ -24,7 +28,7 @@ int lwgrp_logring_barrier(
   MPI_Comm comm  = group->comm;
   int ranks      = group->group_size;
 
-  /* execute Bruck's dissemination algorithm */
+  /* execute barrier dissemination algorithm */
   int index = 0;
   int dist  = 1;
   while (dist < ranks) {
@@ -49,7 +53,7 @@ int lwgrp_logring_barrier(
 }
 
 /* implements a binomail tree */
-int lwgrp_logring_bcast(
+int lwgrp_logring_bcast_binomial(
   void* buffer,
   int count,
   MPI_Datatype datatype,
@@ -87,7 +91,10 @@ int lwgrp_logring_bcast(
         /* we're the target, get the real rank and receive data */
         MPI_Status status;
         int src = list->left_list[log2];
-        MPI_Recv(buffer, count, datatype, src, LWGRP_MSG_TAG_0, comm, &status);
+        MPI_Recv(
+          buffer, count, datatype, src, LWGRP_MSG_TAG_0,
+          comm, &status
+        );
         received = 1;
       } else if (treerank > target) {
         /* if we are in the top half of the subtree set our new
@@ -95,10 +102,13 @@ int lwgrp_logring_bcast(
         parent = target;
       }
     } else {
-      /* we have received the data, so if we have a child, send data */
+      /* we have received the data, so if we have a child,
+       * send data */
       if (treerank + pow2 < ranks) {
         int dst = list->right_list[log2];
-        MPI_Send(buffer, count, datatype, dst, LWGRP_MSG_TAG_0, comm);
+        MPI_Send(
+          buffer, count, datatype, dst, LWGRP_MSG_TAG_0, comm
+        );
       }
     }
 
@@ -110,6 +120,11 @@ int lwgrp_logring_bcast(
   return rc;
 }
 
+/* Jehoshua Bruck, Ching-Tien Ho, Shlomo Kipnis, Eli Upfal,
+ * and Derrick Weathersby, "Efficient algorithms for
+ * all-to-all communications in multiport message-passing systems",
+ * IEEE Transactions on Parallel and Distributed Systems,
+ * Vol 8, No 11, 1997 */
 int lwgrp_logring_gather_brucks(
   const void* sendbuf,
   void* recvbuf,
@@ -127,7 +142,9 @@ int lwgrp_logring_gather_brucks(
 
   /* allocate a temporary receive buffer */
   size_t total_elems = num * ranks;
-  void* tmpbuf = lwgrp_type_dtbuf_alloc(total_elems, datatype, __FILE__, __LINE__);
+  void* tmpbuf = lwgrp_type_dtbuf_alloc(
+    total_elems, datatype, __FILE__, __LINE__
+  );
 
   /* if we're the root, use recvbuf, otherwise use temporary */
   char* buf;
@@ -168,13 +185,17 @@ int lwgrp_logring_allgather_brucks(
 
   /* allocate temporary buffer */
   size_t total_elems = num * ranks;
-  void* tmpbuf = lwgrp_type_dtbuf_alloc(total_elems, datatype, __FILE__, __LINE__);
+  void* tmpbuf = lwgrp_type_dtbuf_alloc(
+    total_elems, datatype, __FILE__, __LINE__
+  );
 
   /* copy our own data into the temporary buffer */
   const void* inputbuf = sendbuf;
 #if MPI_VERSION >= 2
   if (sendbuf == MPI_IN_PLACE) {
-    inputbuf = (const void*) lwgrp_type_dtbuf_from_dtbuf(recvbuf, num * rank, datatype);
+    inputbuf = (const void*) lwgrp_type_dtbuf_from_dtbuf(
+      recvbuf, num * rank, datatype
+    );
   }
 #endif
   lwgrp_memcpy(tmpbuf, inputbuf, num, datatype, comm_rank, comm);
@@ -199,7 +220,9 @@ int lwgrp_logring_allgather_brucks(
     int num_exchange = num * ranks_incoming;
 
     /* receive data from source */
-    void* recv_pos = lwgrp_type_dtbuf_from_dtbuf(tmpbuf, ranks_received * num, datatype);
+    void* recv_pos = lwgrp_type_dtbuf_from_dtbuf(
+      tmpbuf, ranks_received * num, datatype
+    );
     MPI_Irecv(
       recv_pos, num_exchange, datatype, src, LWGRP_MSG_TAG_0,
       comm, &request[0]
@@ -225,8 +248,12 @@ int lwgrp_logring_allgather_brucks(
   /* shift our data back to the proper position in receive buffer */
   int num_pre  = num * rank;
   int num_post = num * (ranks - rank);
-  void* buf_pre  = lwgrp_type_dtbuf_from_dtbuf(recvbuf, num_pre, datatype);
-  void* buf_post = lwgrp_type_dtbuf_from_dtbuf(tmpbuf, num_post, datatype);
+  void* buf_pre  = lwgrp_type_dtbuf_from_dtbuf(
+    recvbuf, num_pre, datatype
+  );
+  void* buf_post = lwgrp_type_dtbuf_from_dtbuf(
+    tmpbuf, num_post, datatype
+  );
   lwgrp_memcpy(buf_pre, tmpbuf,  num_post, datatype, comm_rank, comm);
   lwgrp_memcpy(recvbuf, buf_post, num_pre, datatype, comm_rank, comm);
 
@@ -266,14 +293,18 @@ int lwgrp_logring_allgatherv_brucks(
   }
 
   /* free some temporary space to work with */
-  void* tmpbuf = lwgrp_type_dtbuf_alloc(sum, datatype, __FILE__, __LINE__);
+  void* tmpbuf = lwgrp_type_dtbuf_alloc(
+    sum, datatype, __FILE__, __LINE__
+  );
 
   /* copy our own data into the temporary buffer */
   int num = counts[rank];
   const void* inputbuf = sendbuf;
 #if MPI_VERSION >= 2
   if (sendbuf == MPI_IN_PLACE) {
-    inputbuf = (const void*) lwgrp_type_dtbuf_from_dtbuf(recvbuf, prefix_sum, datatype);
+    inputbuf = (const void*) lwgrp_type_dtbuf_from_dtbuf(
+      recvbuf, prefix_sum, datatype
+    );
   }
 #endif
   lwgrp_memcpy(tmpbuf, inputbuf, num, datatype, comm_rank, comm);
@@ -306,7 +337,9 @@ int lwgrp_logring_allgatherv_brucks(
     }
 
     /* receive data from source */
-    void* recv_pos = lwgrp_type_dtbuf_from_dtbuf(tmpbuf, num_received, datatype);
+    void* recv_pos = lwgrp_type_dtbuf_from_dtbuf(
+      tmpbuf, num_received, datatype
+    );
     MPI_Irecv(
       recv_pos, num_incoming, datatype, src, LWGRP_MSG_TAG_0,
       comm, &request[0]
@@ -333,8 +366,12 @@ int lwgrp_logring_allgatherv_brucks(
   /* shift our data back to the proper position in receive buffer */
   int num_pre  = prefix_sum;
   int num_post = sum - num_pre;
-  void* buf_pre  = lwgrp_type_dtbuf_from_dtbuf(recvbuf, num_pre, datatype);
-  void* buf_post = lwgrp_type_dtbuf_from_dtbuf(tmpbuf, num_post, datatype);
+  void* buf_pre  = lwgrp_type_dtbuf_from_dtbuf(
+    recvbuf, num_pre, datatype
+  );
+  void* buf_post = lwgrp_type_dtbuf_from_dtbuf(
+    tmpbuf, num_post, datatype
+  );
   lwgrp_memcpy(buf_pre, tmpbuf,  num_post, datatype, comm_rank, comm);
   lwgrp_memcpy(recvbuf, buf_post, num_pre, datatype, comm_rank, comm);
 
@@ -473,57 +510,7 @@ int lwgrp_logring_alltoallv_linear(
 
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2
 
-int lwgrp_logring_double_exscan(
-  const void* sendleft,
-  void* recvright,
-  const void* sendright,
-  void* recvleft,
-  int count,
-  MPI_Datatype type,
-  MPI_Op op,
-  const lwgrp_ring* group,
-  const lwgrp_logring* list)
-{
-  /* convert ring to chain and call chain's double exscan function */
-  int rc = LWGRP_SUCCESS;
-  lwgrp_chain chain;
-  lwgrp_chain_build_from_ring(group, &chain);
-  rc = lwgrp_chain_double_exscan(
-    sendleft, recvright, sendright, recvleft, count, type, op,
-    &chain
-  );
-  lwgrp_chain_free(&chain);
-  return rc;
-}
-
-int lwgrp_logring_allreduce(
-  const void* sendbuf,
-  void* recvbuf,
-  int count,
-  MPI_Datatype type,
-  MPI_Op op,
-  const lwgrp_chain* group,
-  const lwgrp_logring* list)
-{
-  int rc = LWGRP_SUCCESS;
-
-  lwgrp_chain chain;
-  lwgrp_chain_build_from_ring(group, &chain);
-
-  lwgrp_logchain logchain;
-  lwgrp_logchain_build_from_logring(group, list, &logchain);
-
-  rc = lwgrp_logchain_allreduce(
-    sendbuf, recvbuf, count, type, op,
-    &chain, &logchain
-  );
-
-  lwgrp_logchain_free(&logchain);
-  lwgrp_chain_free(&chain);
-  return rc;
-}
-
-int lwgrp_logring_reduce(
+int lwgrp_logring_reduce_recursive(
   const void* sendbuf,
   void* recvbuf,
   int count,
@@ -544,7 +531,7 @@ int lwgrp_logring_reduce(
   lwgrp_logchain_build_from_logring(group, list, &logchain);
 
   /* hand off to the logchain reduce */
-  rc = lwgrp_logchain_reduce(
+  rc = lwgrp_logchain_reduce_recursive(
     sendbuf, recvbuf, count, type, op, root,
     &chain, &logchain
   );
@@ -556,8 +543,40 @@ int lwgrp_logring_reduce(
   return rc;
 }
 
+int lwgrp_logring_allreduce_recursive(
+  const void* sendbuf,
+  void* recvbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group,
+  const lwgrp_logring* list)
+{
+  int rc = LWGRP_SUCCESS;
+
+  /* create a chain from the ring */
+  lwgrp_chain chain;
+  lwgrp_chain_build_from_ring(group, &chain);
+
+  /* create a logchain from the logring */
+  lwgrp_logchain logchain;
+  lwgrp_logchain_build_from_logring(group, list, &logchain);
+
+  /* hand off to the logchain allreduce */
+  rc = lwgrp_logchain_allreduce_recursive(
+    sendbuf, recvbuf, count, type, op,
+    &chain, &logchain
+  );
+
+  /* free the logchain and chain */
+  lwgrp_logchain_free(&logchain);
+  lwgrp_chain_free(&chain);
+
+  return rc;
+}
+
 /* left-to-right inclusive scan */
-int lwgrp_logring_scan(
+int lwgrp_logring_scan_recursive(
   const void* inbuf,
   void* outbuf,
   int count,
@@ -569,7 +588,9 @@ int lwgrp_logring_scan(
   int rc = LWGRP_SUCCESS;
 
   /* delegate work to exscan */
-  rc = lwgrp_logring_exscan(inbuf, outbuf, count, type, op, group, list);
+  rc = lwgrp_logring_exscan_recursive(
+    inbuf, outbuf, count, type, op, group, list
+  );
 
   /* now add in our own result */
   if (group->group_rank > 0) {
@@ -586,7 +607,7 @@ int lwgrp_logring_scan(
 }
 
 /* left-to-right exclusive scan */
-int lwgrp_logring_exscan(
+int lwgrp_logring_exscan_recursive(
   const void* inbuf,
   void* outbuf,
   int count,
@@ -598,16 +619,48 @@ int lwgrp_logring_exscan(
   int rc = LWGRP_SUCCESS;
 
   /* allocate a temporary buffer to hold right-to-left result */
-  void* tmpbuf = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);
+  void* tmpbuf = lwgrp_type_dtbuf_alloc(
+    count, type, __FILE__, __LINE__
+  );
 
   /* delegate work to double scan operation */
-  rc = lwgrp_logring_double_exscan(
+  rc = lwgrp_logring_double_exscan_recursive(
     inbuf, tmpbuf, inbuf, outbuf, count, type, op,
     group, list
   );
 
   /* free our temporary buffer */
   lwgrp_type_dtbuf_free(&tmpbuf, type, __FILE__, __LINE__);
+
+  return rc;
+}
+
+int lwgrp_logring_double_exscan_recursive(
+  const void* sendleft,
+  void* recvright,
+  const void* sendright,
+  void* recvleft,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_ring* group,
+  const lwgrp_logring* list)
+{
+  /* convert ring to chain and call chain's double exscan function */
+  int rc = LWGRP_SUCCESS;
+
+  /* create a chain from the ring */
+  lwgrp_chain chain;
+  lwgrp_chain_build_from_ring(group, &chain);
+
+  /* delegate work to chain double exscan */
+  rc = lwgrp_chain_double_exscan_recursive(
+    sendleft, recvright, sendright, recvleft, count, type, op,
+    &chain
+  );
+
+  /* free the chain */
+  lwgrp_chain_free(&chain);
 
   return rc;
 }

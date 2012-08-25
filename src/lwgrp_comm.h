@@ -104,7 +104,14 @@ int lwgrp_comm_bcast(
   const lwgrp_comm* comm /* IN  - group (handle) */
 );
 
-// gather
+int lwgrp_comm_gather(
+  const void* sendbuf,   /* IN  - send buffer */
+  void* recvbuf,         /* OUT - recive buffer */
+  int num,               /* IN  - number of elements on each process (non-negative integer) */
+  MPI_Datatype datatype, /* IN  - element datatype (handle) */
+  int root,              /* IN  - rank of root process (integer) */
+  const lwgrp_comm* comm /* IN  - group (handle) */
+);
 
 int lwgrp_comm_allgather(
   const void* sendbuf,   /* IN  - send buffer */
@@ -114,7 +121,17 @@ int lwgrp_comm_allgather(
   const lwgrp_comm* comm /* IN  - group (handle) */
 );
 
-// allgatherv
+int lwgrp_comm_allgatherv(
+  const void* sendbuf,   /* IN  - send buffer */
+  void* recvbuf,         /* OUT - recive buffer */
+  const int counts[],    /* IN  - non-negative integer array (of length group size) specifying
+                                  the number of elements each processor has */
+  const int displs[],    /* IN  - integer array (of length group size).  Entry i specifies
+                                  the displacement (relative to recvbuf) at which to palce the
+                                  incoming data from process i */
+  MPI_Datatype datatype, /* IN  - element datatype (handle) */
+  const lwgrp_comm* comm /* IN  - group (handle) */
+);
 
 int lwgrp_comm_alltoall(
   const void* sendbuf,   /* IN  - send buffer */

@@ -140,6 +140,9 @@ int lwgrp_logring_gather_brucks(
   int rank  = group->group_rank;
   int ranks = group->group_size;
 
+  /* TODO: need to allocate for true extent here since the
+   * datatype may not be tileable on the non-root procs */
+
   /* allocate a temporary receive buffer */
   size_t total_elems = num * ranks;
   void* tmpbuf = lwgrp_type_dtbuf_alloc(

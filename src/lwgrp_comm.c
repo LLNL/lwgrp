@@ -103,6 +103,21 @@ int lwgrp_comm_bcast(
   return rc;
 } 
 
+int lwgrp_comm_gather(
+  const void* sendbuf,
+  void* recvbuf,
+  int count,
+  MPI_Datatype datatype,
+  int root,
+  const lwgrp_comm* comm)
+{
+  int rc = lwgrp_logring_gather_brucks(
+    sendbuf, recvbuf, count, datatype,
+    root, &comm->ring, &comm->logring
+  );
+  return rc;
+}
+
 int lwgrp_comm_allgather(
   const void* sendbuf,
   void* recvbuf,
@@ -112,6 +127,21 @@ int lwgrp_comm_allgather(
 {
   int rc = lwgrp_logring_allgather_brucks(
     sendbuf, recvbuf, count, datatype,
+    &comm->ring, &comm->logring
+  );
+  return rc;
+}
+
+int lwgrp_comm_allgatherv(
+  const void* sendbuf,
+  void* recvbuf,
+  const int counts[],
+  const int displs[],
+  MPI_Datatype datatype,
+  const lwgrp_comm* comm)
+{
+  int rc = lwgrp_logring_allgatherv_brucks(
+    sendbuf, recvbuf, counts, displs, datatype,
     &comm->ring, &comm->logring
   );
   return rc;

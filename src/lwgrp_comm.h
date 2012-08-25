@@ -30,7 +30,7 @@ typedef struct lwgrp_comm {
  * --------------------------------- */
 
 /* create a lwgrp comm from an MPI communicator */
-int lwgrp_comm_build_from_comm(
+int lwgrp_comm_build_from_mpicomm(
   MPI_Comm comm,      /* IN  - MPI communicator (handle) */
   lwgrp_comm* newcomm /* OUT - lwgrp communicator (pointer to comm struct) */
 );

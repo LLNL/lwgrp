@@ -63,7 +63,7 @@ int lwgrp_chain_copy(const lwgrp_chain* in, lwgrp_chain* out)
 }
 
 /* build a group from a communicator */
-int lwgrp_chain_build_from_comm(MPI_Comm comm, lwgrp_chain* group)
+int lwgrp_chain_build_from_mpicomm(MPI_Comm comm, lwgrp_chain* group)
 {
   /* check that we have a valid group pointer */
   if (group == NULL) {
@@ -188,7 +188,7 @@ int lwgrp_ring_copy(const lwgrp_ring* in, lwgrp_ring* out)
 }
 
 /* build a group from a communicator */
-int lwgrp_ring_build_from_comm(MPI_Comm comm, lwgrp_ring* group)
+int lwgrp_ring_build_from_mpicomm(MPI_Comm comm, lwgrp_ring* group)
 {
   if (comm != MPI_COMM_NULL) {
     /* get our rank and the size of our communicator */
@@ -583,7 +583,7 @@ int lwgrp_logchain_build_from_logring(
 
 /* given a group, build a list of neighbors that are 2^d away on
  * our left and right sides */
-int lwgrp_logchain_build_from_comm(MPI_Comm comm, lwgrp_logchain* list)
+int lwgrp_logchain_build_from_mpicomm(MPI_Comm comm, lwgrp_logchain* list)
 {
   /* get the communicator, our rank in the group, and the size of
    * the group */
@@ -721,7 +721,7 @@ int lwgrp_logring_build_from_ring(
 
 /* given a group, build a list of neighbors that are 2^d away on
  * our left and right sides */
-int lwgrp_logring_build_from_comm(MPI_Comm comm, lwgrp_logring* list)
+int lwgrp_logring_build_from_mpicomm(MPI_Comm comm, lwgrp_logring* list)
 {
   /* get the communicator, our rank in the group, and the size of
    * the group */

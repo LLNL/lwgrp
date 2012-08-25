@@ -94,7 +94,7 @@ typedef lwgrp_logchain lwgrp_logring;
 int lwgrp_chain_set_null(lwgrp_chain* chain);
 int lwgrp_chain_copy(const lwgrp_chain* in, lwgrp_chain* out);
 int lwgrp_chain_build_from_ring(const lwgrp_ring* ring, lwgrp_chain* chain);
-int lwgrp_chain_build_from_comm(MPI_Comm comm, lwgrp_chain* chain);
+int lwgrp_chain_build_from_mpicomm(MPI_Comm comm, lwgrp_chain* chain);
 int lwgrp_chain_build_from_vals(MPI_Comm comm, int left, int right, int size, int rank, lwgrp_chain* chain);
 int lwgrp_chain_free(lwgrp_chain* chain);
 
@@ -105,7 +105,7 @@ int lwgrp_chain_free(lwgrp_chain* chain);
 int lwgrp_ring_set_null(lwgrp_ring* ring);
 int lwgrp_ring_copy(const lwgrp_ring* in, lwgrp_ring* out);
 int lwgrp_ring_build_from_chain(const lwgrp_chain* chain, lwgrp_ring* ring);
-int lwgrp_ring_build_from_comm(MPI_Comm comm, lwgrp_ring* ring);
+int lwgrp_ring_build_from_mpicomm(MPI_Comm comm, lwgrp_ring* ring);
 int lwgrp_ring_build_from_list(MPI_Comm comm, int size, const int ranklist[], lwgrp_ring* ring);
 int lwgrp_ring_free(lwgrp_ring* ring);
 
@@ -115,7 +115,7 @@ int lwgrp_ring_free(lwgrp_ring* ring);
 
 int lwgrp_logchain_build_from_chain(const lwgrp_chain* chain, lwgrp_logchain* list);
 int lwgrp_logchain_build_from_logring(const lwgrp_ring* ring, const lwgrp_logring* logring, lwgrp_logchain* list);
-int lwgrp_logchain_build_from_comm(MPI_Comm comm, lwgrp_logchain* list);
+int lwgrp_logchain_build_from_mpicomm(MPI_Comm comm, lwgrp_logchain* list);
 int lwgrp_logchain_free(lwgrp_logchain* list);
 
 /* ---------------------------------
@@ -123,7 +123,7 @@ int lwgrp_logchain_free(lwgrp_logchain* list);
  * --------------------------------- */
 
 int lwgrp_logring_build_from_ring(const lwgrp_ring* ring, lwgrp_logring* list);
-int lwgrp_logring_build_from_comm(MPI_Comm comm, lwgrp_logring* list);
+int lwgrp_logring_build_from_mpicomm(MPI_Comm comm, lwgrp_logring* list);
 int lwgrp_logring_build_from_list(MPI_Comm, int size, const int ranklist[], lwgrp_logring* list);
 int lwgrp_logring_free(lwgrp_logring* list);
 

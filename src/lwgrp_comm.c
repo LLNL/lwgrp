@@ -7,13 +7,13 @@
  * Constructors / destructors
  * --------------------------------- */
 
-int lwgrp_comm_build_from_comm(
+int lwgrp_comm_build_from_mpicomm(
   MPI_Comm comm,
   lwgrp_comm* newcomm)
 {
   /* these are both local, so the whole op is local */
-  lwgrp_ring_build_from_comm(comm, &newcomm->ring);
-  lwgrp_logring_build_from_comm(comm, &newcomm->logring);
+  lwgrp_ring_build_from_mpicomm(comm, &newcomm->ring);
+  lwgrp_logring_build_from_mpicomm(comm, &newcomm->logring);
   return LWGRP_SUCCESS;
 }
 

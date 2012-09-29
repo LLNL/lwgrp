@@ -45,7 +45,7 @@ int lwgrp_comm_split_bin(
   lwgrp_comm* newcomm)
 {
   /* TODO: if many bins, do this in phases or call bitonic split */
-  lwgrp_ring_split_bin(bins, bin, &comm->ring, &newcomm->ring);
+  lwgrp_ring_split_bin_radix(bins, bin, &comm->ring, &newcomm->ring);
   lwgrp_logring_build_from_ring(&newcomm->ring, &newcomm->logring);
   return LWGRP_SUCCESS;
 }
@@ -178,6 +178,8 @@ int lwgrp_comm_alltoallv(
   return rc;
 }
 
+#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+
 int lwgrp_comm_allreduce(
   const void* sendbuf,
   void* recvbuf,
@@ -257,3 +259,4 @@ int lwgrp_comm_double_exscan(
   return rc;
 }
 
+#endif

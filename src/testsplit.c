@@ -71,7 +71,7 @@ int main (int argc, char* argv[])
   lwgrp_ring_build_from_comm(MPI_COMM_WORLD, &group);
 
   lwgrp_ring group_split;
-  lwgrp_ring_split_bin(2, (rank%2), &group, &group_split);
+  lwgrp_ring_split_bin_scan(2, (rank%2), &group, &group_split);
 
   lwgrp_logring logring;
   lwgrp_logring_build_from_ring(&group, &logring);

@@ -13,6 +13,8 @@
 #include "lwgrp.h"
 #include "lwgrp_internal.h"
 
+#define LWGRP_SPLIT_BIN_BITS (4)
+
 enum bin_values {
   INDEX_COUNT   = 0,
   INDEX_CLOSEST = 1,
@@ -21,7 +23,7 @@ enum bin_values {
 /* given a specified number of bins, an index into those bins, and a
  * input group, create and return a new group consisting of all ranks
  * belonging to the same bin, runs in O(num_bins * log N) time */
-int lwgrp_ring_split_bin(
+int lwgrp_ring_split_bin_scan(
   int num_bins,
   int my_bin,
   const lwgrp_ring* in,
@@ -205,6 +207,110 @@ int lwgrp_ring_split_bin(
   lwgrp_free(&bins);
 
   return LWGRP_SUCCESS; 
+}
+
+/* if there are lots of bins, we mask off portions of the bin number
+ * at little bit at a time to keep the scan vector to a limited size */
+int lwgrp_ring_split_bin_radix(
+  int num_colors,
+  int color,
+  const lwgrp_ring* in,
+  lwgrp_ring* out)
+{
+  /* if there are no colors, everyone must be in the NULL group */
+  if (num_colors == 0) {
+    lwgrp_ring_set_null(out);
+    return LWGRP_SUCCESS;
+  }
+
+  /* TODO: if num_colors < 0, color out of range, or bin_bits <= 0
+   * then abort */
+
+  /* number of bits to bite off at one time, optimal value will depend
+   * on the system architecture */
+  int bin_bits = LWGRP_SPLIT_BIN_BITS;
+
+  /* set to 1 to split by lowest-order bits first, set to
+   * 0 to split by highest-order bits */
+  int low = 1;
+
+  /* copy the input group */
+  lwgrp_ring tmp;
+  lwgrp_ring_copy(in, &tmp);
+
+  /* compute number of bins */
+  int num_bins = (1 << bin_bits);
+
+  /* determine number of bits needed to cover all color values */
+  /* since we number colors starting from 0 instead of 1, subtract
+   * one before computing number of bits needed to represent all
+   * colors */
+  int color_bits = 0;
+  num_colors--;
+  do {
+    num_colors >>= 1;
+    color_bits++;
+  } while (num_colors > 0);
+
+  /* convert color to unsigned value */
+  int ucolor_bits = color_bits;
+  unsigned int ucolor = 0;
+  if (color >= 0) {
+    ucolor = (unsigned int) color;
+  }
+
+  /* determine the number of masking steps */
+  int num_steps = ucolor_bits / bin_bits;
+  if (num_steps * bin_bits < ucolor_bits) {
+    num_steps++;
+  }
+
+  /* start splitting the ring into pieces */
+  int step = 0;
+  while (step < num_steps) {
+    /* determine our bin for this round */
+    int my_bin = -1;
+    if (color >= 0) {
+      /* determine the number of bits and direction to shift the mask */
+      int shift = 0;
+      if (low) {
+        /* work from lowest-order bits up */
+        shift = step * bin_bits;
+      } else {
+        /* work from highest-order bits down */
+        shift = (ucolor_bits - bin_bits) - step * bin_bits;
+      }
+
+      /* shift the mask */
+      unsigned int mask = (num_bins - 1);
+      if (shift >= 0) {
+        mask <<= shift;
+      } else {
+        mask >>= (0 - shift);
+        shift = 0;
+      }
+
+      /* mask bits from color value to determine bin */
+      my_bin = (ucolor & mask) >> shift;
+    }
+
+    /* split group based on our bin */
+    lwgrp_ring_split_bin_scan(num_bins, my_bin, &tmp, out);
+
+    /* set output group to input group for next iteration */
+    lwgrp_ring_free(&tmp);
+    lwgrp_ring_copy(out, &tmp);
+    lwgrp_ring_free(out);
+
+    /* increase step count and split agian */
+    step++;
+  }
+
+  /* copy final group into the output group */
+  lwgrp_ring_copy(&tmp, out);
+  lwgrp_ring_free(&tmp);
+
+  return LWGRP_SUCCESS;
 }
 
 /* simply send to each process in turn in a ring fashion,

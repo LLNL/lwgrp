@@ -22,7 +22,7 @@ enum bin_values {
 /* given a specified number of bins, an index into those bins, and a
  * input group, create and return a new group consisting of all ranks
  * belonging to the same bin, runs in O(num_bins * log N) time */
-int lwgrp_chain_split_bin(
+int lwgrp_chain_split_bin_scan(
   int num_bins,
   int my_bin,
   const lwgrp_chain* in,

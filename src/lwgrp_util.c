@@ -15,13 +15,23 @@
 
 static MPI_Comm lwgrp_comm_self = MPI_COMM_NULL;
 
+static inline void lwgrp_type_get_lb_extent(MPI_Datatype type, MPI_Aint* lb, MPI_Aint* extent)
+{
+#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+  MPI_Type_get_extent(type, &lb, &extent);
+#else
+  MPI_Type_lb(type, lb);
+  MPI_Type_extent(type, extent);
+#endif
+}
+
 /* given a pointer to the start of a datatype buffer, return pointer to
  * datatype buffer for the start of the count-th element */
 void* lwgrp_type_dtbuf_from_dtbuf(const void* dtbuf, int count, MPI_Datatype type)
 {
   /* get lower bounds and extent of datatype */
   MPI_Aint lb, extent;
-  MPI_Type_get_extent(type, &lb, &extent);
+  lwgrp_type_get_lb_extent(type, &lb, &extent);
 
   char* ptr = (char*)dtbuf + count * extent;
   return ptr;
@@ -33,9 +43,9 @@ void* lwgrp_type_dtbuf_from_membuf(const void* membuf, int count, MPI_Datatype t
 {
   /* get lower bounds and extent of datatype */
   MPI_Aint lb, extent;
-  MPI_Type_get_extent(type, &lb, &extent);
+  lwgrp_type_get_lb_extent(type, &lb, &extent);
 
-  char* ptr = (char*)membuf -lb + count * extent;
+  char* ptr = (char*)membuf - lb + count * extent;
   return ptr;
 }
 
@@ -43,11 +53,9 @@ void* lwgrp_type_dtbuf_from_membuf(const void* membuf, int count, MPI_Datatype t
  * and align buf to type */
 void* lwgrp_type_dtbuf_alloc(int count, MPI_Datatype type, const char* file, int line)
 {
-#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
-#endif
   /* get lower bounds and extent of datatype */
   MPI_Aint lb, extent;
-  MPI_Type_get_extent(type, &lb, &extent);
+  lwgrp_type_get_lb_extent(type, &lb, &extent);
 
   size_t size  = count * extent;
   size_t align = 0;
@@ -64,7 +72,7 @@ int lwgrp_type_dtbuf_free(void** dtbuf_ptr, MPI_Datatype type, const char* file,
     if (dtbuf != NULL) {
       /* get lower bounds and extent of datatype */
       MPI_Aint lb, extent;
-      MPI_Type_get_extent(type, &lb, &extent);
+      lwgrp_type_get_lb_extent(type, &lb, &extent);
 
       char* ptr = (char*)dtbuf + lb;
       if (ptr != NULL) {

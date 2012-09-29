@@ -135,7 +135,7 @@ int lwgrp_logring_free(lwgrp_logring* list);
  * input group, create and return a new group consisting of all ranks
  * belonging to the same bin, my_bin should be in range [0,bins-1]
  * if my_bin < 0, then the empty group is returned */
-int lwgrp_chain_split_bin(
+int lwgrp_chain_split_bin_scan(
   int bins,                /* IN  - number of bins (non-negative integer) */
   int bin,                 /* IN  - bin to which calling proc belongs (integer) */
   const lwgrp_chain* in,   /* IN  - group to be split (handle) */
@@ -221,7 +221,16 @@ int lwgrp_logchain_allreduce_recursive(
  * input group, create and return a new group consisting of all ranks
  * belonging to the same bin, my_bin should be in range [0,bins-1]
  * if my_bin < 0, then the empty group is returned */
-int lwgrp_ring_split_bin(
+int lwgrp_ring_split_bin_scan(
+  int bins,               /* IN  - number of bins (non-negative integer) */
+  int bin,                /* IN  - bin to which calling proc belongs (integer) */
+  const lwgrp_ring* in,   /* IN  - group to be split (handle) */
+  lwgrp_ring* out         /* OUT - group containing all procs in same
+                           *       bin as calling process (handle) */
+);
+
+/* chunks split operation into pieces */
+int lwgrp_ring_split_bin_radix(
   int bins,               /* IN  - number of bins (non-negative integer) */
   int bin,                /* IN  - bin to which calling proc belongs (integer) */
   const lwgrp_ring* in,   /* IN  - group to be split (handle) */

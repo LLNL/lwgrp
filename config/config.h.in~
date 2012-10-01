@@ -9,9 +9,6 @@
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define if libcallpath is available */
-#undef HAVE_LIBCALLPATH
-
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
 
@@ -42,6 +39,9 @@
 /* Define to the sub-directory in which libtool stores uninstalled libraries.
    */
 #undef LT_OBJDIR
+
+/* Define if liblwgrp should not use MPI_ANY_SOURCE */
+#undef LWGRP_NO_ANYSOURCE
 
 /* Define the project alias string (name-ver or name-ver-rel). */
 #undef META_ALIAS

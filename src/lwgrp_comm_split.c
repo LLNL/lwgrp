@@ -35,6 +35,13 @@ enum chain_fields {
   CHAIN_SIZE  = 4,
 };
 
+enum ckr_fields {
+  CKR_COLOR = 0,
+  CKR_KEY   = 1,
+  CKR_RANK  = 2,
+  CKR_ADDR  = 3,
+};
+
 /* just compares the first int of an array, to send data
  * back to its originating rank */
 static int lwgrp_cmp_one_int(const int a[], const int b[])
@@ -44,13 +51,6 @@ static int lwgrp_cmp_one_int(const int a[], const int b[])
   }
   return -1;
 }
-
-enum ckr_fields {
-  CKR_COLOR = 0,
-  CKR_KEY   = 1,
-  CKR_RANK  = 2,
-  CKR_ADDR  = 3,
-};
 
 /* compares a (color,key,rank) integer tuple, first by color,
  * then key, then rank */
@@ -91,6 +91,7 @@ static int lwgrp_sort_bitonic_merge(
   int start,
   int num,
   int direction,
+  int (*compare)(const int*, const int*),
   const lwgrp_chain* group,
   const lwgrp_logchain* list,
   int tag)
@@ -126,7 +127,7 @@ static int lwgrp_sort_bitonic_merge(
 
         /* select the appropriate value,
          * depedning on the sort direction */
-        int cmp = lwgrp_cmp_three_ints(scratch, value);
+        int cmp = (*compare)(scratch, value);
         if ((direction && cmp < 0) || (!direction && cmp > 0)) {
           memcpy(value, scratch, num_ints * sizeof(int));
         }
@@ -134,7 +135,8 @@ static int lwgrp_sort_bitonic_merge(
 
       /* recursively merge our half */
       lwgrp_sort_bitonic_merge(
-        num_ints, value, scratch, start, count, direction, group, list, tag
+        num_ints, value, scratch, start, count, direction, compare,
+        group, list, tag
       );
     } else {
       int dst_rank = rank - count;
@@ -149,7 +151,7 @@ static int lwgrp_sort_bitonic_merge(
 
         /* select the appropriate value,
          * depedning on the sort direction */
-        int cmp = lwgrp_cmp_three_ints(scratch, value);
+        int cmp = (*compare)(scratch, value);
         if ((direction && cmp > 0) || (!direction && cmp < 0)) {
           memcpy(value, scratch, num_ints * sizeof(int));
         }
@@ -159,7 +161,8 @@ static int lwgrp_sort_bitonic_merge(
       int new_start = start + count;
       int new_num   = num - count;
       lwgrp_sort_bitonic_merge(
-        num_ints, value, scratch, new_start, new_num, direction, group, list, tag
+        num_ints, value, scratch, new_start, new_num, direction, compare,
+        group, list, tag
       );
     }
   }
@@ -174,6 +177,7 @@ static int lwgrp_sort_bitonic_sort(
   int start,
   int num,
   int direction,
+  int (*compare)(const int*, const int*),
   const lwgrp_chain* group,
   const lwgrp_logchain* list,
   int tag)
@@ -186,19 +190,22 @@ static int lwgrp_sort_bitonic_sort(
     int mid = num / 2;
     if (rank < start + mid) {
       lwgrp_sort_bitonic_sort(
-        num_ints, value, scratch, start, mid, !direction, group, list, tag
+        num_ints, value, scratch, start, mid, !direction, compare,
+        group, list, tag
       );
     } else {
       int new_start = start + mid;
       int new_num   = num - mid;
       lwgrp_sort_bitonic_sort(
-        num_ints, value, scratch, new_start, new_num, direction, group, list, tag
+        num_ints, value, scratch, new_start, new_num, direction, compare,
+        group, list, tag
       );
     }
 
     /* merge the two sorted halves */
     lwgrp_sort_bitonic_merge(
-      num_ints, value, scratch, start, num, direction, group, list, tag
+      num_ints, value, scratch, start, num, direction, compare,
+      group, list, tag
     );
   }
 
@@ -213,6 +220,7 @@ static int lwgrp_logchain_sort_bitonic(
   int num_ints,
   int item[],
   int scratch[],
+  int (*compare)(const int*, const int*),
   const lwgrp_chain* group,
   const lwgrp_logchain* list,
   int tag)
@@ -220,7 +228,8 @@ static int lwgrp_logchain_sort_bitonic(
   /* conduct the bitonic sort on our values */
   int ranks = group->group_size;
   int rc = lwgrp_sort_bitonic_sort(
-    num_ints, item, scratch, 0, ranks, 1, group, list, tag
+    num_ints, item, scratch, 0, ranks, 1, compare,
+    group, list, tag
   );
   return rc;
 }
@@ -239,13 +248,11 @@ static enum scan_fields {
  *      comparing color values
  *   2) executes left-to-right and right-to-left (double) inclusive
  *      segmented scan to compute number of ranks to left and right
- *      sides of host value
- *   3) sends left/right neighbor info along with rank and group
- *      size back to originating rank via isend/irecv ANY_SOURCE
- *      followed by a barrier */
+ *      sides of host value */
 static int lwgrp_chain_split_sorted(
-  const int val[4],
+  const int item[4],
   const lwgrp_chain* in,
+  const lwgrp_logchain* list,
   int tag1,
   int tag2,
   lwgrp_chain* out)
@@ -258,8 +265,10 @@ static int lwgrp_chain_split_sorted(
    * representing the chain data structure for the the globally
    * ordered color/key/rank tuple that we hold, which we'll later
    * send back to the rank that contributed our item */
+
+  /* record address of process that contributed this item */
   int send_ints[5];
-  send_ints[CHAIN_SRC] = val[CKR_ADDR];
+  send_ints[CHAIN_SRC] = item[CKR_ADDR];
 
   /* get the communicator to send our messages on */
   MPI_Comm comm = in->comm;
@@ -273,7 +282,7 @@ static int lwgrp_chain_split_sorted(
   int right_buf[4];
   if (left_rank != MPI_PROC_NULL) {
     MPI_Isend(
-      (void*)val, 4, MPI_INT, left_rank, tag1, comm, &request[k]
+      (void*)item, 4, MPI_INT, left_rank, tag1, comm, &request[k]
     );
     k++;
 
@@ -284,7 +293,7 @@ static int lwgrp_chain_split_sorted(
   }
   if (right_rank != MPI_PROC_NULL) {
     MPI_Isend(
-      (void*)val, 4, MPI_INT, right_rank, tag1, comm, &request[k]
+      (void*)item, 4, MPI_INT, right_rank, tag1, comm, &request[k]
     );
     k++;
 
@@ -302,7 +311,7 @@ static int lwgrp_chain_split_sorted(
    * rank of a new group */
   int first_in_group = 0;
   if (left_rank != MPI_PROC_NULL &&
-      left_buf[CKR_COLOR] == val[CKR_COLOR])
+      left_buf[CKR_COLOR] == item[CKR_COLOR])
   {
     /* record the rank of the item from our left neighbor */
     send_ints[CHAIN_LEFT] = left_buf[CKR_ADDR];
@@ -316,7 +325,7 @@ static int lwgrp_chain_split_sorted(
    * rank of our group */
   int last_in_group = 0;
   if (right_rank != MPI_PROC_NULL &&
-      right_buf[CKR_COLOR] == val[CKR_COLOR])
+      right_buf[CKR_COLOR] == item[CKR_COLOR])
   {
     /* record the rank of the item from our right neighbor */
     send_ints[CHAIN_RIGHT] = right_buf[CKR_ADDR];
@@ -418,12 +427,14 @@ static int lwgrp_chain_split_sorted(
    * left-going counts minus 1 so we don't double counts ourself. */
   send_ints[CHAIN_RANK] = send_right_ints[SCAN_COUNT] - 1;
   send_ints[CHAIN_SIZE] = send_right_ints[SCAN_COUNT] + 
-                         send_left_ints[SCAN_COUNT] - 1;
+                          send_left_ints[SCAN_COUNT] - 1;
 
+  /* send group info back to originating rank */
+  int recv_ints[5];
+#ifdef LWGRP_USE_ANYSOURCE
   /* send group info back to originating rank,
    * receive our own from someone else
-   * (don't know who so use an ANY_SOURCE recv) */
-  int recv_ints[5];
+   * (don't know who so use ANY_SOURCE) */
   MPI_Isend(
     send_ints, 5, MPI_INT, send_ints[CHAIN_SRC], tag2,
     comm, &request[0]
@@ -433,6 +444,16 @@ static int lwgrp_chain_split_sorted(
     comm, &request[1]
   );
   MPI_Waitall(2, request, status);
+#else
+  /* if we can't use MPI_ANY_SOURCE, then sort item back to its
+   * destination */
+  int scratch_ints[5];
+  lwgrp_logchain_sort_bitonic(
+    5, send_ints, scratch_ints, lwgrp_cmp_one_int,
+    in, list, tag1
+  );
+  memcpy(recv_ints, send_ints, 5 * sizeof(int));
+#endif
 
   /* fill in info for our group */
   out->comm       = in->comm;
@@ -457,6 +478,10 @@ int lwgrp_comm_split(
   /* TODO: for small groups, fastest to do an allgather and
    * local sort */
 
+  /* TODO: allreduce to determine whether keys are already ordered and
+   * to compute min and max color values, if already ordered, reduce
+   * problem to bin split using min/max colors to set number of bins */
+
   /* build a group representing our input communicator -- O(1) local */
   lwgrp_chain chain;
   lwgrp_chain_build_from_ring(&comm->ring, &chain);
@@ -476,23 +501,29 @@ int lwgrp_comm_split(
 
   /* sort our values using bitonic sort algorithm -- 
    * O(log^2 N) communication */
-  lwgrp_logchain_sort_bitonic(4, item, scratch, &chain, &logchain, tag1);
+  lwgrp_logchain_sort_bitonic(
+    4, item, scratch, lwgrp_cmp_three_ints,
+    &chain, &logchain, tag1
+  );
 
   /* now split our sorted values by comparing our value with our
    * left and right neighbors to determine group boundaries --
    * O(log N) communication */
   lwgrp_chain newchain;
-  lwgrp_chain_split_sorted(item, &chain, tag1, tag2, &newchain);
+  lwgrp_chain_split_sorted(item, &chain, &logchain, tag1, tag2, &newchain);
 
   /* if color is undefined, at this point we have the group of
    * processes that all set color == MPI_UNDEFINED, but we
-   * really want the empty group */
+   * really want the empty group -- O(1) local */
   if (color == MPI_UNDEFINED) {
     lwgrp_chain_set_null(&newchain);
   }
 
   /* build comm from newly created chain */
   lwgrp_comm_build_from_chain(&newchain, newcomm);
+
+  /* free the chain representing the new group -- O(1) local */
+  lwgrp_chain_free(&newchain);
 
   /* free the logchain -- O(1) local */
   lwgrp_logchain_free(&logchain);

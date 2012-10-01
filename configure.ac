@@ -29,6 +29,13 @@ AC_PROG_CXX
 #X_AC_PROG_MPICC
 LX_FIND_MPI
 
+  # don't use MPI_ANY_SOURCE unless enabled
+  AC_ARG_ENABLE(
+    [mpianysource],
+    AS_HELP_STRING(--enable-mpianysource,Specify whether to use MPI_ANY_SOURCE),
+    AC_DEFINE([LWGRP_USE_ANYSOURCE], [1], [Define to 1 if liblwgrp should use MPI_ANY_SOURCE])
+  )
+
 ##
 # enable libtool
 ##

@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include "mpi.h"
 #include "lwgrp.h"
+#include "../config/config.h"
 
 void* lwgrp_type_dtbuf_from_dtbuf(const void* dtbuf, int count, MPI_Datatype type);
 

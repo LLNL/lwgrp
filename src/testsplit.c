@@ -68,7 +68,7 @@ int main (int argc, char* argv[])
   int* members = (int*) malloc(ranks * sizeof(int));
 
   lwgrp_ring group;
-  lwgrp_ring_build_from_comm(MPI_COMM_WORLD, &group);
+  lwgrp_ring_build_from_mpicomm(MPI_COMM_WORLD, &group);
 
   lwgrp_ring group_split;
   lwgrp_ring_split_bin_scan(2, (rank%2), &group, &group_split);
@@ -84,10 +84,10 @@ int main (int argc, char* argv[])
     outbuf[i] = -1;
   }
 
-  lwgrp_logring_barrier(&group, &logring);
+  lwgrp_logring_barrier_dissemination(&group, &logring);
 
   int bcastbuf = rank;
-  lwgrp_logring_bcast(&bcastbuf, 1, MPI_INT, 0, &group, &logring);
+  lwgrp_logring_bcast_binomial(&bcastbuf, 1, MPI_INT, 0, &group, &logring);
 
   lwgrp_logring_allgather_brucks(&rank, members, 1, MPI_INT, &group, &logring);
 
@@ -95,9 +95,9 @@ int main (int argc, char* argv[])
 
   int sum = -1;
 #if MPI_VERSION >= 2 && MPI_SUBVERSION >= 2
-  lwgrp_logring_allreduce(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
-  lwgrp_logring_scan(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
-  lwgrp_logring_exscan(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
+  lwgrp_logring_allreduce_recursive(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
+  lwgrp_logring_scan_recursive(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
+  lwgrp_logring_exscan_recursive(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
 #endif
 
 #if 0

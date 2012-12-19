@@ -67,6 +67,14 @@ int lwgrp_comm_split(
                            *       ordered by key, then rank in comm */
 );
 
+/* assigns an id to each unique string in the union of all strings of procs in comm */
+int lwgrp_comm_rank_str(
+  const lwgrp_comm* comm, /* IN  - lwgrp communicator (pointer to comm struct) */
+  const char* str,        /* IN  - string to be ranked (string) */
+  int* groups,            /* OUT - number of unique strings (non-negative integer) */
+  int* groupid            /* OUT - rank of input string (non-negative integer) */
+);
+
 /* frees memory associated with comm structure */
 int lwgrp_comm_free(
   lwgrp_comm* comm /* INOUT - lwgrp comm (pointer to comm struct) */

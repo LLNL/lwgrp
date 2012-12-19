@@ -15,6 +15,7 @@
 
 static MPI_Comm lwgrp_comm_self = MPI_COMM_NULL;
 
+/* return lower bound and extent of given datatype */
 static inline void lwgrp_type_get_lb_extent(MPI_Datatype type, MPI_Aint* lb, MPI_Aint* extent)
 {
 #if MPI_VERSION >=2 && MPI_SUBVERSION >=2

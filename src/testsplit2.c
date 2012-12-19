@@ -65,7 +65,8 @@ int lwgrp_comm_split_bin_members(MPI_Comm mpicomm, int bins, int bin, int* size,
 
   if (*size > 0) {
     int rank;
-    lwgrp_comm_rank(&newcomm, &rank);
+    //lwgrp_comm_rank(&newcomm, &rank);
+    lwgrp_comm_rank(&comm, &rank);
     lwgrp_comm_allgather(&rank, members, 1, MPI_INT, &newcomm);
   }
 
@@ -85,7 +86,8 @@ int lwgrp_comm_split_members(MPI_Comm mpicomm, int color, int key, int* size, in
 
   if (*size > 0) {
     int rank;
-    lwgrp_comm_rank(&newcomm, &rank);
+    //lwgrp_comm_rank(&newcomm, &rank);
+    lwgrp_comm_rank(&comm, &rank);
     lwgrp_comm_allgather(&rank, members, 1, MPI_INT, &newcomm);
   }
 
@@ -119,8 +121,8 @@ int main (int argc, char* argv[])
   color = 0;
   key = rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_bin_members(MPI_COMM_WORLD, 1, color, &size, members);
-//  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+//  lwgrp_comm_split_bin_members(MPI_COMM_WORLD, 1, color, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
   end = MPI_Wtime();
   print_members(1, rank, size, members);
   if (rank == 0) {
@@ -163,8 +165,8 @@ int main (int argc, char* argv[])
   color = rank;
   key = -rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_bin_members(MPI_COMM_WORLD, ranks, color, &size, members);
-//  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+//  lwgrp_comm_split_bin_members(MPI_COMM_WORLD, ranks, color, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
   end = MPI_Wtime();
   print_members(5, rank, size, members);
   if (rank == 0) {
@@ -185,8 +187,8 @@ int main (int argc, char* argv[])
   color = (rank % 2) ? 0 : MPI_UNDEFINED;
   key = -rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_bin_members(MPI_COMM_WORLD, 1, color, &size, members);
-//  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+//  lwgrp_comm_split_bin_members(MPI_COMM_WORLD, 1, color, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
   end = MPI_Wtime();
   print_members(7, rank, size, members);
   if (rank == 0) {
@@ -207,8 +209,8 @@ int main (int argc, char* argv[])
   color = rank % 2;
   key = rank;
   start = MPI_Wtime();
-  lwgrp_comm_split_bin_members(MPI_COMM_WORLD, 2, color, &size, members);
-//  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
+//  lwgrp_comm_split_bin_members(MPI_COMM_WORLD, 2, color, &size, members);
+  lwgrp_comm_split_members(MPI_COMM_WORLD, color, key, &size, members);
   end = MPI_Wtime();
   print_members(9, rank, size, members);
   if (rank == 0) {
@@ -245,6 +247,15 @@ int main (int argc, char* argv[])
   if (rank == 0) {
     printf("MPI_Comm_split time %f secs\n", end - start);
   }
+
+
+  lwgrp_comm comm_world;
+  lwgrp_comm_build_from_mpicomm(MPI_COMM_WORLD, &comm_world);
+  int groups, groupid;
+  char hostname[256];
+  gethostname(hostname, sizeof(hostname));
+  lwgrp_comm_rank_str(&comm_world, hostname, &groups, &groupid);
+  printf("%d: %s: %d of %d\n", rank, hostname, groupid, groups);
 
 
   free(members);

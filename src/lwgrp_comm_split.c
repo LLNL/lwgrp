@@ -673,6 +673,10 @@ int lwgrp_comm_split(
   return LWGRP_SUCCESS;
 }
 
+#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+/* we need lwgrp_comm_allreduce for this,
+ * which requires MPI_Reduce_local */
+
 /* int lwgrp_comm_rank_str(MPI_Comm comm, const void* str, int* groups, int* groupid)
  *   IN  comm    - input communicator (handle)
  *   IN  str     - string (NUL-terminated string)
@@ -748,6 +752,8 @@ int lwgrp_comm_rank_str(const lwgrp_comm* comm, const char* str, int* groups, in
 #if MPI_VERSION >=2
   MPI_Type_create_struct(2, blocklens, displs, types, &type);
 #else
+  /* keep this here in case we find a way to support
+   * this function in MPI-1 */
   MPI_Type_struct(2, blocklens, displs, types, &type);
 #endif
   MPI_Type_commit(&type);
@@ -793,3 +799,5 @@ int lwgrp_comm_rank_str(const lwgrp_comm* comm, const char* str, int* groups, in
 
   return 0;
 }
+
+#endif /* MPI_VERSION >=2 && MPI_SUBVERSION >=2 */

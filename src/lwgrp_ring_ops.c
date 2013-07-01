@@ -333,40 +333,54 @@ int lwgrp_ring_alltoallv_linear(
   int rank      = group->group_rank;
   int ranks     = group->group_size;
 
+  /* TODO: since send and recv arrays are O(n), we may
+   * as well allgather info for all ranks once here to
+   * avoid O(n) communication for sparse alltoallv */
+
   /* execute the alltoall operation */
   MPI_Request request[6];
   MPI_Status status[6];
   int dist = 0;
-  int src = group->comm_left;
-  int dst = group->comm_right;
+  int left  = group->comm_left;
+  int right = group->comm_right;
+  int src = left;
+  int dst = right;
   int src_next, dst_next;
   while (dist < ranks) {
+    int k = 0;
+
     /* receive data from src */
-    void* recv_ptr = lwgrp_type_dtbuf_from_dtbuf(
-      recvbuf, recvdispls[src], datatype
-    );
     int recv_count = recvcounts[src];
-    MPI_Irecv(
-      recv_ptr, recv_count, datatype, src, LWGRP_MSG_TAG_0, comm, &request[0]
-    );
+    if (recv_count > 0) {
+      void* recv_ptr = lwgrp_type_dtbuf_from_dtbuf(
+        recvbuf, recvdispls[src], datatype
+      );
+      MPI_Irecv(
+        recv_ptr, recv_count, datatype, src, LWGRP_MSG_TAG_0, comm, &request[k++]
+      );
+    }
 
     /* send data to dst */
-    void* send_ptr = lwgrp_type_dtbuf_from_dtbuf(
-      sendbuf, senddispls[dst], datatype
-    );
     int send_count = sendcounts[dst];
-    MPI_Isend(
-      send_ptr, send_count, datatype, dst, LWGRP_MSG_TAG_0, comm, &request[1]
-    );
+    if (send_count > 0) {
+      void* send_ptr = lwgrp_type_dtbuf_from_dtbuf(
+        sendbuf, senddispls[dst], datatype
+      );
+      MPI_Isend(
+        send_ptr, send_count, datatype, dst, LWGRP_MSG_TAG_0, comm, &request[k++]
+      );
+    }
 
     /* exchange addresses, send our current src to our current dst, etc */
-    MPI_Irecv(&src_next, 1, MPI_INT, src, LWGRP_MSG_TAG_0, comm, &request[2]);
-    MPI_Irecv(&dst_next, 1, MPI_INT, dst, LWGRP_MSG_TAG_0, comm, &request[3]);
-    MPI_Isend(&src,      1, MPI_INT, dst, LWGRP_MSG_TAG_0, comm, &request[4]);
-    MPI_Isend(&dst,      1, MPI_INT, src, LWGRP_MSG_TAG_0, comm, &request[5]);
+    MPI_Irecv(&src_next, 1, MPI_INT, src, LWGRP_MSG_TAG_0, comm, &request[k++]);
+    MPI_Irecv(&dst_next, 1, MPI_INT, dst, LWGRP_MSG_TAG_0, comm, &request[k++]);
+    MPI_Isend(&left,     1, MPI_INT, dst, LWGRP_MSG_TAG_0, comm, &request[k++]);
+    MPI_Isend(&right,    1, MPI_INT, src, LWGRP_MSG_TAG_0, comm, &request[k++]);
 
     /* wait for communication to complete */
-    MPI_Waitall(6, request, status);
+    if (k > 0) {
+      MPI_Waitall(k, request, status);
+    }
 
     /* update addresses for next step */
     src = src_next;

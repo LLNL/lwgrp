@@ -441,7 +441,7 @@ static int lwgrp_logchain_init(int ranks, lwgrp_logchain* list)
   list->left_list  = left_list;
   list->right_list = right_list;
 
-  return 0;
+  return LWGRP_SUCCESS;
 }
 
 /* given a group, build a list of neighbors that are 2^d away on
@@ -532,7 +532,7 @@ int lwgrp_logchain_build_from_chain(
   list->left_size++;
   list->right_size++;
 
-  return 0;
+  return LWGRP_SUCCESS;
 }
 
 /* given a group, build a list of neighbors that are 2^d away on
@@ -578,7 +578,7 @@ int lwgrp_logchain_build_from_logring(
   list->left_size++;
   list->right_size++;
 
-  return 0;
+  return LWGRP_SUCCESS;
 }
 
 /* given a group, build a list of neighbors that are 2^d away on
@@ -623,19 +623,21 @@ int lwgrp_logchain_build_from_mpicomm(MPI_Comm comm, lwgrp_logchain* list)
   list->left_size++;
   list->right_size++;
 
-  return 0;
+  return LWGRP_SUCCESS;
 }
 
 /* free off resources associated with list object */
 int lwgrp_logchain_free(lwgrp_logchain* list)
 {
-  list->left_size  = 0;
-  list->right_size = 0;
+  if (list != NULL) {
+    list->left_size  = 0;
+    list->right_size = 0;
 
-  lwgrp_free(&list->left_list);
-  lwgrp_free(&list->right_list);
+    lwgrp_free(&list->left_list);
+    lwgrp_free(&list->right_list);
+  }
 
-  return 0;
+  return LWGRP_SUCCESS;
 }
 
 /* -----------------------------------------------------

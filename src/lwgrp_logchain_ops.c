@@ -50,11 +50,7 @@ int lwgrp_logchain_allreduce_recursive(
 
   /* copy our data into the receive buffer */
   if (sendbuf != MPI_IN_PLACE) {
-    MPI_Sendrecv(
-      (void*)sendbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-             recvbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-      comm, status
-    );
+    lwgrp_type_dtbuf_memcpy(recvbuf, sendbuf, count, type);
   }
 
   /* allocate buffer to receive partial results */
@@ -64,14 +60,23 @@ int lwgrp_logchain_allreduce_recursive(
   int pow2, log2;
   lwgrp_largest_pow2_log2_lte(ranks, &pow2, &log2);
 
+  /* invoke power-of-two algorithm directly if we can */
+  if (ranks == pow2) {
+    /* note that this takes recvbuf / scratch as params rather than sendbuf / recvbuf */
+    int rc = lwgrp_logchain_allreduce_recursive_pow2(recvbuf, tempbuf, count, type, op, group, list);
+
+    /* free our scratch space */
+    lwgrp_type_dtbuf_free(&tempbuf, type, __FILE__, __LINE__);
+
+    return rc;
+  }
+
   /* compue number of extra ranks, and the last rank that borders
    * one of the odd ranks out */
   int extra = ranks - pow2;
   int cutoff = extra * 2;
 
   /* assume that we are not one of the odd ranks out */
-  int left_index   = 0;
-  int right_index  = 0;
   int odd_rank_out = 0;
 
   /* reduce data from odd ranks out and remove them from the chain */
@@ -109,11 +114,7 @@ int lwgrp_logchain_allreduce_recursive(
            * results for non-commutative ops, since out = in + out and
            * the higher order data is in tempbuf */
           MPI_Reduce_local(recvbuf, tempbuf, count, type, op);
-          MPI_Sendrecv(
-            (void*)tempbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-                   recvbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-            comm, status
-          );
+          lwgrp_type_dtbuf_memcpy(recvbuf, tempbuf, count, type);
         }
       }
 
@@ -123,14 +124,12 @@ int lwgrp_logchain_allreduce_recursive(
 
       /* everyone who has a left neighbor will get a new one */
       if (rank > 0) {
-        left_index++;
-        new_left = list->left_list[left_index];
+        new_left = list->left_list[1];
       }
 
       /* everyone but the cutoff rank gets a new right neighbor */
       if (rank < cutoff) {
-        right_index++;
-        new_right = list->right_list[right_index];
+        new_right = list->right_list[1];
       }
     }
 
@@ -145,9 +144,9 @@ int lwgrp_logchain_allreduce_recursive(
     pow2_group = &new_group;
   }
 
-  /* power of two reduce */
+  /* power of two reduce using chain instead of logchain */
   if (! odd_rank_out) {
-    lwgrp_logchain_allreduce_recursive_pow2(recvbuf, tempbuf, count, type, op, pow2_group, list, left_index, right_index);
+    lwgrp_chain_allreduce_recursive_pow2(recvbuf, tempbuf, count, type, op, pow2_group);
   }
 
   /* send message back to odd ranks out */
@@ -179,9 +178,7 @@ int lwgrp_logchain_allreduce_recursive_pow2(
   MPI_Datatype type,
   MPI_Op op,
   const lwgrp_chain* group,
-  const lwgrp_logchain* list,
-  int left_index,
-  int right_index)
+  const lwgrp_logchain* list)
 {
   /* we use a recurisve doubling algorithm */
   MPI_Request request[4];
@@ -195,14 +192,15 @@ int lwgrp_logchain_allreduce_recursive_pow2(
 
   /* execute recursive doubling operation */
   int mask = 1;
+  int index = 0;
   while (mask < ranks) {
     /* get rank of partner in comm */
     int partner;
     int exchange_rank = rank ^ mask;
     if (exchange_rank < rank) {
-      partner = list->left_list[left_index];
+      partner = list->left_list[index];
     } else {
-      partner = list->right_list[right_index];
+      partner = list->right_list[index];
     }
 
     /* exchange data with partner */
@@ -220,17 +218,12 @@ int lwgrp_logchain_allreduce_recursive_pow2(
       /* higher order data is in scratchbuf, so scratchbuf = resultbuf + scratchbuf,
        * then copy result back to resultbuf for sending in next round */
       MPI_Reduce_local(resultbuf, scratchbuf, count, type, op);
-      MPI_Sendrecv(
-        scratchbuf, count, type, comm_rank, LWGRP_MSG_TAG_0,
-        resultbuf,  count, type, comm_rank, LWGRP_MSG_TAG_0,
-        comm, status
-      );
+      lwgrp_type_dtbuf_memcpy(resultbuf, scratchbuf, count, type);
     }
 
     /* prepare for next iteration */
     mask <<= 1;
-    left_index++;
-    right_index++;
+    index++;
   }
 
   return LWGRP_SUCCESS;

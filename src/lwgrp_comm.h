@@ -15,6 +15,7 @@
  * pt2pt) */
 
 #include "mpi.h"
+#include "lwgrp.h"
 
 #ifdef __cplusplus
 extern "C" {

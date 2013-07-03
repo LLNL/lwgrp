@@ -673,7 +673,7 @@ int lwgrp_comm_split(
   return LWGRP_SUCCESS;
 }
 
-#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+#if (MPI_VERSION >=2 && MPI_SUBVERSION >=2) || (MPI_VERSION >= 3)
 /* we need lwgrp_comm_allreduce for this,
  * which requires MPI_Reduce_local */
 

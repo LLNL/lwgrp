@@ -430,7 +430,7 @@ int lwgrp_chain_allgather_brucks_int(
   return LWGRP_SUCCESS;
 }
 
-#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+#if (MPI_VERSION >=2 && MPI_SUBVERSION >=2) || (MPI_VERSION >= 3)
 /* execute an left-to-right exclusive scan simultaneously with a
  * right-to-left exclusive scan */
 int lwgrp_chain_double_exscan_recursive(
@@ -592,7 +592,7 @@ int lwgrp_chain_double_exscan_recursive(
 }
 #endif
 
-#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+#if (MPI_VERSION >=2 && MPI_SUBVERSION >=2) || (MPI_VERSION >= 3)
 
 int lwgrp_chain_allreduce_recursive(
   const void* sendbuf,

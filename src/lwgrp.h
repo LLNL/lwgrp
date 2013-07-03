@@ -148,7 +148,7 @@ int lwgrp_chain_barrier_dissemination(
   const lwgrp_chain* group /* IN  - group (handle) */
 );
 
-#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+#if (MPI_VERSION >=2 && MPI_SUBVERSION >=2) || (MPI_VERSION >= 3)
 
 int lwgrp_chain_double_exscan_recursive(
   const void* sendleft,    /* IN  - input buffer for right-to-left exscan */
@@ -186,7 +186,7 @@ int lwgrp_chain_allgather_brucks_int(
  * Collectives using logchains
  * --------------------------------- */
 
-#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+#if (MPI_VERSION >=2 && MPI_SUBVERSION >=2) || (MPI_VERSION >= 3)
 
 int lwgrp_logchain_reduce_recursive(
   const void* inbuf,         /* IN  - input buffer for reduction */
@@ -332,7 +332,7 @@ int lwgrp_logring_alltoallv_linear(
   const lwgrp_logring* list /* IN  - list (handle) */
 );
 
-#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+#if (MPI_VERSION >=2 && MPI_SUBVERSION >=2) || (MPI_VERSION >= 3)
 
 int lwgrp_logring_reduce_recursive(
   const void* inbuf,         /* IN  - input buffer for reduction */

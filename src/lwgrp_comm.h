@@ -167,7 +167,7 @@ int lwgrp_comm_alltoallv(
   const lwgrp_comm* comm  /* IN  - group (handle) */
 );
 
-#if MPI_VERSION >=2 && MPI_SUBVERSION >=2
+#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
 
 int lwgrp_comm_reduce(
   const void* inbuf,     /* IN  - input buffer for reduction */

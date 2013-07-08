@@ -673,7 +673,7 @@ int lwgrp_comm_split(
   return LWGRP_SUCCESS;
 }
 
-#if (MPI_VERSION >=2 && MPI_SUBVERSION >=2) || (MPI_VERSION >= 3)
+#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
 /* we need lwgrp_comm_allreduce for this,
  * which requires MPI_Reduce_local */
 
@@ -749,7 +749,7 @@ int lwgrp_comm_rank_str(const lwgrp_comm* comm, const char* str, int* groups, in
   int blocklens[2]      = {max_len, 1};
   MPI_Aint displs[2]    = {0, max_len};
   MPI_Datatype types[2] = {MPI_CHAR, MPI_INT};
-#if MPI_VERSION >=2
+#if MPI_VERSION >= 2
   MPI_Type_create_struct(2, blocklens, displs, types, &type);
 #else
   /* keep this here in case we find a way to support
@@ -800,4 +800,4 @@ int lwgrp_comm_rank_str(const lwgrp_comm* comm, const char* str, int* groups, in
   return 0;
 }
 
-#endif /* MPI_VERSION >=2 && MPI_SUBVERSION >=2 */
+#endif /* MPI >= 2.2 */

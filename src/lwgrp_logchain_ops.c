@@ -13,7 +13,7 @@
 #include "lwgrp.h"
 #include "lwgrp_internal.h"
 
-#if (MPI_VERSION >=2 && MPI_SUBVERSION >=2) || (MPI_VERSION >= 3)
+#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
 
 int lwgrp_logchain_allreduce_recursive(
   const void* sendbuf,

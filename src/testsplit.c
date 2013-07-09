@@ -94,14 +94,11 @@ int main (int argc, char* argv[])
   lwgrp_logring_alltoall_brucks(inbuf, outbuf, 1, MPI_INT, &group, &logring);
 
   int sum = -1;
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
   lwgrp_logring_allreduce_recursive(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
   lwgrp_logring_scan_recursive(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
   lwgrp_logring_exscan_recursive(&rank, &sum, 1, MPI_INT, MPI_SUM, &group, &logring);
-#endif
 
 #if 0
-  #if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
   int myval = rank*2 + 1;
   int allval;
   lwgrp_chain_allreduce(&myval, &allval, 1, MPI_INT, MPI_SUM, &group);
@@ -117,7 +114,6 @@ int main (int argc, char* argv[])
     rank, ltr_send, ltr_recv, rtl_send, rtl_recv
   );
   fflush(stdout);
-  #endif
 #endif
 
   lwgrp_ring_free(&group);
@@ -137,7 +133,6 @@ int main (int argc, char* argv[])
     printf("lwgrp_comm_split_members time %f secs\n", end - start);
   }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
   start = MPI_Wtime();
   lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
@@ -148,7 +143,6 @@ int main (int argc, char* argv[])
   if (rank == 0) {
     printf("lwgrp_comm_split_create time %f secs\n", end - start);
   }
-#endif
 
   start = MPI_Wtime();
   MPI_Comm_split(MPI_COMM_WORLD, color, key, &newcomm);
@@ -172,7 +166,6 @@ int main (int argc, char* argv[])
     printf("lwgrp_comm_split_members time %f secs\n", end - start);
   }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
   start = MPI_Wtime();
   lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
@@ -183,7 +176,6 @@ int main (int argc, char* argv[])
   if (rank == 0) {
     printf("lwgrp_comm_split_create time %f secs\n", end - start);
   }
-#endif
 
   start = MPI_Wtime();
   MPI_Comm_split(MPI_COMM_WORLD, color, key, &newcomm);
@@ -206,7 +198,6 @@ int main (int argc, char* argv[])
     printf("lwgrp_comm_split_members time %f secs\n", end - start);
   }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
   start = MPI_Wtime();
   lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
@@ -217,7 +208,6 @@ int main (int argc, char* argv[])
   if (rank == 0) {
     printf("lwgrp_comm_split_create time %f secs\n", end - start);
   }
-#endif
 
   start = MPI_Wtime();
   MPI_Comm_split(MPI_COMM_WORLD, color, key, &newcomm);
@@ -240,7 +230,6 @@ int main (int argc, char* argv[])
     printf("lwgrp_comm_split_members time %f secs\n", end - start);
   }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
   start = MPI_Wtime();
   lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
@@ -251,7 +240,6 @@ int main (int argc, char* argv[])
   if (rank == 0) {
     printf("lwgrp_comm_split_create time %f secs\n", end - start);
   }
-#endif
 
   start = MPI_Wtime();
   MPI_Comm_split(MPI_COMM_WORLD, color, key, &newcomm);
@@ -274,7 +262,6 @@ int main (int argc, char* argv[])
     printf("lwgrp_comm_split_members time %f secs\n", end - start);
   }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
   start = MPI_Wtime();
   lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
@@ -285,7 +272,6 @@ int main (int argc, char* argv[])
   if (rank == 0) {
     printf("lwgrp_comm_split_create time %f secs\n", end - start);
   }
-#endif
 
   start = MPI_Wtime();
   MPI_Comm_split(MPI_COMM_WORLD, color, key, &newcomm);
@@ -308,7 +294,6 @@ int main (int argc, char* argv[])
     printf("lwgrp_comm_split_members time %f secs\n", end - start);
   }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
   start = MPI_Wtime();
   lwgrp_comm_split_create(MPI_COMM_WORLD, color, key, tag1, tag2, &newcomm);
   end = MPI_Wtime();
@@ -319,7 +304,6 @@ int main (int argc, char* argv[])
   if (rank == 0) {
     printf("lwgrp_comm_split_create time %f secs\n", end - start);
   }
-#endif
 
   start = MPI_Wtime();
   MPI_Comm_split(MPI_COMM_WORLD, color, key, &newcomm);

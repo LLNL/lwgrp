@@ -14,7 +14,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 /* lwgrp_comm_split_members(comm, color, key, size, members)
  *
@@ -39,7 +39,6 @@ int lwgrp_comm_split_members(
   int members[]
 );
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
 /* same as above but returns a newly created communicator via MPI_Comm_create,
  * can only use in MPI-2.2 and later and still not useful unless MPI_COMM_CREATE
  * is scalable */
@@ -51,9 +50,8 @@ int lwgrp_comm_split_create(
   int tag2,
   MPI_Comm* newcomm
 );
-#endif /* MPI >= 2.2 */
 
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 #endif /* _LWGRP_COMM_SPLIT_H */

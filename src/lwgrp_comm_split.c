@@ -673,10 +673,6 @@ int lwgrp_comm_split(
   return LWGRP_SUCCESS;
 }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
-/* we need lwgrp_comm_allreduce for this,
- * which requires MPI_Reduce_local */
-
 /* int lwgrp_comm_rank_str(MPI_Comm comm, const void* str, int* groups, int* groupid)
  *   IN  comm    - input communicator (handle)
  *   IN  str     - string (NUL-terminated string)
@@ -799,5 +795,3 @@ int lwgrp_comm_rank_str(const lwgrp_comm* comm, const char* str, int* groups, in
 
   return 0;
 }
-
-#endif /* MPI >= 2.2 */

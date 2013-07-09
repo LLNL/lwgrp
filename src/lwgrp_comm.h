@@ -19,7 +19,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 typedef struct lwgrp_comm {
   lwgrp_ring  ring;
@@ -167,8 +167,6 @@ int lwgrp_comm_alltoallv(
   const lwgrp_comm* comm  /* IN  - group (handle) */
 );
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
-
 int lwgrp_comm_reduce(
   const void* inbuf,     /* IN  - input buffer for reduction */
   void* outbuf,          /* OUT - output buffer for reduction */
@@ -217,9 +215,7 @@ int lwgrp_comm_double_exscan(
   const lwgrp_comm* comm /* IN  - group (handle) */
 );
 
-#endif /* MPI >= v2.2 */
-
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 #endif /* _LWGRP_COMM_H */

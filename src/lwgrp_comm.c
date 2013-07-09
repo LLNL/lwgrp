@@ -178,8 +178,6 @@ int lwgrp_comm_alltoallv(
   return rc;
 }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
-
 int lwgrp_comm_allreduce(
   const void* sendbuf,
   void* recvbuf,
@@ -258,5 +256,3 @@ int lwgrp_comm_double_exscan(
   );
   return rc;
 }
-
-#endif

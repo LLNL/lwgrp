@@ -508,8 +508,6 @@ int lwgrp_logring_alltoallv_linear(
   return rc;
 }
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
-
 int lwgrp_logring_reduce_recursive(
   const void* sendbuf,
   void* recvbuf,
@@ -662,5 +660,3 @@ int lwgrp_logring_double_exscan_recursive(
 
   return rc;
 }
-
-#endif /* MPI >= v2.2 */

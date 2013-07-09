@@ -33,7 +33,7 @@
 
 #ifdef __cplusplus
 extern "C" {
-#endif
+#endif /* __cplusplus */
 
 #define LWGRP_SUCCESS (0)
 
@@ -148,8 +148,6 @@ int lwgrp_chain_barrier_dissemination(
   const lwgrp_chain* group /* IN  - group (handle) */
 );
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
-
 int lwgrp_chain_double_exscan_recursive(
   const void* sendleft,    /* IN  - input buffer for right-to-left exscan */
   void* recvright,         /* OUT - output buffer for right-to-left exscan */
@@ -173,8 +171,6 @@ int lwgrp_chain_allreduce_recursive(
   const lwgrp_chain* group /* IN  - group (handle) */
 );
 
-#endif /* MPI >= v2.2 */
-
 /* executes an allgather-like operation of a single integer */
 int lwgrp_chain_allgather_brucks_int(
   int sendint,
@@ -185,8 +181,6 @@ int lwgrp_chain_allgather_brucks_int(
 /* ---------------------------------
  * Collectives using logchains
  * --------------------------------- */
-
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
 
 int lwgrp_logchain_reduce_recursive(
   const void* inbuf,         /* IN  - input buffer for reduction */
@@ -210,8 +204,6 @@ int lwgrp_logchain_allreduce_recursive(
   const lwgrp_chain* group,  /* IN  - group (handle) */
   const lwgrp_logchain* list /* IN  - list (handle) */
 );
-
-#endif /* MPI >= v2.2 */
 
 /* ---------------------------------
  * Collectives using rings
@@ -332,8 +324,6 @@ int lwgrp_logring_alltoallv_linear(
   const lwgrp_logring* list /* IN  - list (handle) */
 );
 
-#if (MPI_VERSION == 2 && MPI_SUBVERSION >= 2) || (MPI_VERSION >= 3)
-
 int lwgrp_logring_reduce_recursive(
   const void* inbuf,         /* IN  - input buffer for reduction */
   void* outbuf,              /* OUT - output buffer for reduction */
@@ -387,9 +377,7 @@ int lwgrp_logring_double_exscan_recursive(
   const lwgrp_logring* list /* IN  - list (handle) */
 );
 
-#endif /* MPI >= v2.2 */
-
 #ifdef __cplusplus
 }
-#endif
+#endif /* __cplusplus */
 #endif /* _LWGRP_H */

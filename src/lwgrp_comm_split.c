@@ -13,7 +13,6 @@
 
 #include "mpi.h"
 #include "lwgrp.h"
-#include "lwgrp_comm.h"
 #include "lwgrp_internal.h"
 
 /* Based on "Exascale Algorithms for Generalized MPI_Comm_split",

@@ -3,7 +3,6 @@
 
 #include "mpi.h"
 #include "lwgrp.h"
-#include "lwgrp_comm.h"
 
 int print_members(int testid, int rank, int size, int members[])
 {

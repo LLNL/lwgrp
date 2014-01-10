@@ -1,6 +1,5 @@
 #include "mpi.h"
 #include "lwgrp.h"
-#include "lwgrp_comm.h"
 #include "lwgrp_internal.h"
 
 /* ---------------------------------

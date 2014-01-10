@@ -1,7 +1,7 @@
 ##
 # Prologue.
 ##
-AC_INIT
+AC_INIT([Light-weight Group Library],[1.0.1],[],[lwgrp],[https://github.com/hpc/lwgrp])
 AC_CONFIG_SRCDIR([src/lwgrp.c])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
@@ -16,7 +16,7 @@ X_AC_EXPAND_INSTALL_DIRS
 ##
 # Automake support.
 ##
-AM_INIT_AUTOMAKE([$META_NAME], [$META_VERSION]-[$META_RELEASE])
+AM_INIT_AUTOMAKE([foreign])
 
 #AM_MAINTAINER_MODE
 

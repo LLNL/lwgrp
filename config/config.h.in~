@@ -40,7 +40,7 @@
    */
 #undef LT_OBJDIR
 
-/* Set to 1 if liblwgrp should use MPI_ANY_SOURCE */
+/* Define to 1 if liblwgrp should use MPI_ANY_SOURCE */
 #undef LWGRP_USE_ANYSOURCE
 
 /* Define the project alias string (name-ver or name-ver-rel). */

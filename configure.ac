@@ -2,11 +2,10 @@
 # Prologue.
 ##
 AC_INIT([Light-weight Group Library],[1.0.1],[],[lwgrp],[https://github.com/hpc/lwgrp])
-AC_CONFIG_SRCDIR([src/lwgrp.c])
 AC_CONFIG_AUX_DIR(config)
 AC_CONFIG_MACRO_DIR([m4])
-
-AM_CONFIG_HEADER([config/config.h])
+AC_CONFIG_HEADERS([config/config.h])
+AC_CONFIG_SRCDIR([src/lwgrp.c])
 
 #AC_CANONICAL_SYSTEM
 

@@ -2,8 +2,7 @@ AM_CFLAGS = -I$(top_srcdir)/src -I$(top_srcdir)/config
 
 # headers to be installed in /include subdirectory
 include_HEADERS = \
-	lwgrp.h \
-	lwgrp_comm.h
+	lwgrp.h
 
 # headers that should not be installed into /include
 noinst_HEADERS = \

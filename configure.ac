@@ -65,6 +65,7 @@ AC_C_BIGENDIAN
 AC_CONFIG_FILES([ \
   Makefile \
   src/Makefile \
+  liblwgrp.pc \
 ])
 AC_OUTPUT
 

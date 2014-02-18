@@ -614,19 +614,18 @@ int lwgrp_logring_exscan_recursive(
 {
   int rc = LWGRP_SUCCESS;
 
-  /* allocate a temporary buffer to hold right-to-left result */
-  void* tmpbuf = lwgrp_type_dtbuf_alloc(
-    count, type, __FILE__, __LINE__
-  );
+  /* create a chain from the ring */
+  lwgrp_chain chain;
+  lwgrp_chain_build_from_ring(group, &chain);
 
   /* delegate work to double scan operation */
-  rc = lwgrp_logring_double_exscan_recursive(
-    inbuf, tmpbuf, inbuf, outbuf, count, type, op,
-    group, list
+  rc = lwgrp_chain_exscan_recursive(
+    inbuf, outbuf, count, type, op,
+    &chain
   );
 
-  /* free our temporary buffer */
-  lwgrp_type_dtbuf_free(&tmpbuf, type, __FILE__, __LINE__);
+  /* free the chain */
+  lwgrp_chain_free(&chain);
 
   return rc;
 }

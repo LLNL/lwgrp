@@ -10,25 +10,6 @@
 #ifndef _LWGRP_H
 #define _LWGRP_H
 
-/* TODO: move collectives to their own library, like lwgrp_colls,
- * and just provide simple get/set routines here to construct
- * groups and acquire member info:
- *
- * lwgrp_chain_set(chain, rank, size, left, right)
- * lwgrp_chain_get(chain, rank, size, left, right)
- * lwgrp_chain_get_size_rank(chain, size, rank)
- * lwgrp_chain_get_left_right(chain, left, right)
- *
- * size = lwgrp_logchain_get_left_size(logchain)
- * left = lwgrp_lochain_get_left(logchain, index)
- *
- * pt2pt library
- *   test whether address is NULL
- *   send(void* addr, buf, dt, req, flag_onetime)
- *   recv(void* addr, buf, dr, req)
- *   wait(req)
- * */
-
 #include "mpi.h"
 
 #ifdef __cplusplus
@@ -39,34 +20,40 @@ extern "C" {
 
 extern int LWGRP_MSG_TAG_0;
 
-/* We represent groups of processes using a doubly-linked list called
- * a "chain".  This is a very simple struct that records the number
- * of processes in the group, the rank of the local process within the
- * group, and the address of the local process and of the processes
+/* The recommended interface for most cases is to use lwgrp_comm.
+ * This abstraction is similar to an MPI communicator.
+ *
+ * Some users may want to invoke lower-level routines
+ * using chains, rings, logchains, or logrings.
+ *
+ * We represent groups of processes using a doubly-linked list called
+ * a "chain".  This is a struct that records the number of processes
+ * in the group, the rank of the local process within the group, the
+ * address of the local process, and the addresses of the processes
  * having ranks one less (left) and one more (right) than the local
- * process.  We implement this version of the chain on MPI, so for
- * addresses we record a parent communicator and ranks within that
- * communicator.  To be lightweight, the reference to the communicator
- * is a literal copy of the handle value, not a full dup. */
+ * process.  We implement this on MPI, so for addresses we record a
+ * parent communicator and ranks within that communicator.  To be
+ * lightweight, the reference to the communicator is a literal copy
+ * of the handle value, not a dup. */
 
 typedef struct lwgrp_chain {
   MPI_Comm comm;  /* communicator to send messages to procs in group */
-  int comm_rank;  /* address (rank) of current process in communicator */
-  int comm_left;  /* address (rank) of process one less than current */
-  int comm_right; /* address (rank) of process one more than current */
+  int comm_rank;  /* address (rank) of local process in communicator */
+  int comm_left;  /* address (rank) of process whose group rank is one less than local */
+  int comm_right; /* address (rank) of process whose group rank is one more than local */
   int group_size; /* number of processes in our group */
   int group_rank; /* our rank within the group [0,group_size) */
 } lwgrp_chain;
 
-/* We define a "ring", which is just a chain where the endpoints wrap,
- * so we can use the same structure, but we define a different type
- * in case we want to extend this in the future. */
+/* We define a "ring", which is a chain where the endpoints wrap.
+ * We use the same structure, but we define a different type
+ * in case we want to extend this type in the future. */
 
 typedef lwgrp_chain lwgrp_ring;
 
 /* A logchain is a data structure that records the number and addresses
  * of processes that are 2^d ranks away from the local process to the
- * left and right sides, for d = 0 to d = ceiling(log N)-1.
+ * left and right sides, for d = 0 to ceiling(log N)-1.
  *
  * When multiple collectives are to be issued on a given chain, one
  * can construct and cache the logchain as an optimization.
@@ -87,9 +74,9 @@ typedef struct lwgrp_logchain {
 /* again, we define a ring variant of the logchain */
 typedef lwgrp_logchain lwgrp_logring;
 
-/* we package a ring and logring into a single comm structure,
- * this object is meant to provide routines closer to what people
- * using MPI_Comms expect to see */
+/* We package a ring and logring into a single comm structure.
+ * This object is provides routines closer to what people
+ * expect from MPI communicators. */
 typedef struct lwgrp_comm {
   lwgrp_ring  ring;
   lwgrp_logring logring;
@@ -211,16 +198,11 @@ int lwgrp_chain_barrier_dissemination(
   const lwgrp_chain* group /* IN  - group (handle) */
 );
 
-int lwgrp_chain_double_exscan_recursive(
-  const void* sendleft,    /* IN  - input buffer for right-to-left exscan */
-  void* recvright,         /* OUT - output buffer for right-to-left exscan */
-  const void* sendright,   /* IN  - input buffer for left-to-right excan */
-  void* recvleft,          /* OUT - output buffer for left-to-right exscan */
-  int count,               /* IN  - number of elements in buffer
-                            *       (non-negative integer) */
-  MPI_Datatype type,       /* IN  - buffer datatype (handle) */
-  MPI_Op op,               /* IN  - reduction operation (handle) */
-  const lwgrp_chain* group /* IN  - group (handle) */
+/* executes an allgather-like operation of a single integer */
+int lwgrp_chain_allgather_brucks_int(
+  int sendint,
+  int recvbuf[],
+  const lwgrp_chain* group
 );
 
 /* execute an allreduce over the chain */
@@ -234,11 +216,27 @@ int lwgrp_chain_allreduce_recursive(
   const lwgrp_chain* group /* IN  - group (handle) */
 );
 
-/* executes an allgather-like operation of a single integer */
-int lwgrp_chain_allgather_brucks_int(
-  int sendint,
-  int recvbuf[],
-  const lwgrp_chain* group
+/* executes a left-to-right exclusive scan */
+int lwgrp_chain_exscan_recursive(
+  const void* sendbuf,     /* IN  - input buffer for scan (can be MPI_IN_PLACE) */
+  void* recvbuf,           /* OUT - output buffer fo scan (not modified on rank 0) */
+  int count,               /* IN  - number of elements in buffer (non negative integer) */
+  MPI_Datatype type,       /* IN  - buffer datatype (handle) */
+  MPI_Op op,               /* IN  - reduction operation (handle) */
+  const lwgrp_chain* group /* IN  - group (handle) */
+);
+
+/* executes a left-to-right and right-to-left exclusive scan */
+int lwgrp_chain_double_exscan_recursive(
+  const void* sendleft,    /* IN  - input buffer for right-to-left exscan */
+  void* recvright,         /* OUT - output buffer for right-to-left exscan */
+  const void* sendright,   /* IN  - input buffer for left-to-right excan */
+  void* recvleft,          /* OUT - output buffer for left-to-right exscan */
+  int count,               /* IN  - number of elements in buffer
+                            *       (non-negative integer) */
+  MPI_Datatype type,       /* IN  - buffer datatype (handle) */
+  MPI_Op op,               /* IN  - reduction operation (handle) */
+  const lwgrp_chain* group /* IN  - group (handle) */
 );
 
 /* ---------------------------------

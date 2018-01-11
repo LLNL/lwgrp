@@ -410,8 +410,8 @@ static int lwgrp_logchain_split_sorted(
     MPI_Waitall(k, request, status);
   }
 
-  /* if we have a left neighbor, and if his color value matches ours,
-   * then our element is part of his group, otherwise we are the first
+  /* if we have a left neighbor, and if its color value matches ours,
+   * then our element is part of its group, otherwise we are the first
    * rank of a new group */
   int first_in_group = 1;
   send_ints[CHAIN_LEFT] = MPI_PROC_NULL;
@@ -426,8 +426,8 @@ static int lwgrp_logchain_split_sorted(
     }
   }
 
-  /* if we have a right neighbor, and if his color value matches ours,
-   * then our element is part of his group, otherwise we are the last
+  /* if we have a right neighbor, and if its color value matches ours,
+   * then our element is part of its group, otherwise we are the last
    * rank of our group */
   int last_in_group = 1;
   send_ints[CHAIN_RIGHT] = MPI_PROC_NULL;
@@ -471,7 +471,7 @@ static int lwgrp_logchain_split_sorted(
       k++;
 
       /* send the rank of our right neighbor to our left,
-       * since it will be his right neighbor in the next step */
+       * since it will be its right neighbor in the next step */
       send_left_ints[SCAN_NEXT] = right_rank;
       MPI_Isend(
         send_left_ints, 4, MPI_INT, left_rank, tag1, comm, &request[k]
@@ -487,7 +487,7 @@ static int lwgrp_logchain_split_sorted(
       k++;
 
       /* send the rank of our left neighbor to our right,
-       * since it will be his left neighbor in the next step */
+       * since it will be its left neighbor in the next step */
       send_right_ints[SCAN_NEXT] = left_rank;
       MPI_Isend(
         send_right_ints, 4, MPI_INT, right_rank, tag1, comm, &request[k]

@@ -101,8 +101,8 @@ int lwgrp_chain_split_bin_scan(
   while (left_rank != MPI_PROC_NULL || right_rank != MPI_PROC_NULL) {
     int k = 0;
 
-    /* if we have a left partner, send him our left-going data and
-     * recv his right-going data */
+    /* if we have a left partner, send it our left-going data and
+     * recv its right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* receive right-going data from the left */
       MPI_Irecv(
@@ -112,7 +112,7 @@ int lwgrp_chain_split_bin_scan(
       k++;
 
       /* inform rank to our left of the rank on our right, and send
-       * him our data */
+       * it our data */
       send_left_bins[rank_index] = right_rank;
       MPI_Isend(
         send_left_bins, elements, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
@@ -121,8 +121,8 @@ int lwgrp_chain_split_bin_scan(
       k++;
     }
 
-    /* if we have a right partner, send him our right-going data and
-     * recv his left-going data */
+    /* if we have a right partner, send it our right-going data and
+     * recv its left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* receive left-going data from the right */
       MPI_Irecv(
@@ -132,7 +132,7 @@ int lwgrp_chain_split_bin_scan(
       k++;
 
       /* inform rank to our right of the rank on our left, and send
-       * him our data */
+       * it our data */
       send_right_bins[rank_index] = left_rank;
       MPI_Isend(
         send_right_bins, elements, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
@@ -146,7 +146,7 @@ int lwgrp_chain_split_bin_scan(
       MPI_Waitall(k, request, status);
     }
 
-    /* if we have a left partner, merge his data with our
+    /* if we have a left partner, merge its data with our
      * right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* first, make note of the rightmost rank in our bin
@@ -172,7 +172,7 @@ int lwgrp_chain_split_bin_scan(
       left_rank = recv_left_bins[rank_index];
     }
 
-    /* if we have a right partner, merge his data with our
+    /* if we have a right partner, merge its data with our
      * left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* first, make note of the leftmost rank in our bin to the
@@ -239,8 +239,8 @@ int lwgrp_chain_barrier_dissemination(const lwgrp_chain* group)
   while (left_rank != MPI_PROC_NULL || right_rank != MPI_PROC_NULL) {
     int k = 0;
 
-    /* if we have a left partner, send him our left-going data
-     * and recv his right-going data */
+    /* if we have a left partner, send it our left-going data
+     * and recv its right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* receive right-going data from the left */
       MPI_Irecv(
@@ -250,7 +250,7 @@ int lwgrp_chain_barrier_dissemination(const lwgrp_chain* group)
       k++;
 
       /* inform rank to our left of the rank on our right,
-       * and send him our data */
+       * and send it our data */
       MPI_Isend(
         &right_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
         comm, &request[k]
@@ -258,8 +258,8 @@ int lwgrp_chain_barrier_dissemination(const lwgrp_chain* group)
       k++;
     }
 
-    /* if we have a right partner, send him our right-going data
-     * and recv his left-going data */
+    /* if we have a right partner, send it our right-going data
+     * and recv its left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* receive left-going data from the right */
       MPI_Irecv(
@@ -269,7 +269,7 @@ int lwgrp_chain_barrier_dissemination(const lwgrp_chain* group)
       k++;
 
       /* inform rank to our right of the rank on our left,
-       * and send him our data */
+       * and send it our data */
       MPI_Isend(
         &left_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
         comm, &request[k]
@@ -330,7 +330,7 @@ int lwgrp_chain_allgather_brucks_int(
   while (left_rank != MPI_PROC_NULL || right_rank != MPI_PROC_NULL) {
     int k = 0;
 
-    /* if we have a left partner, send him all data we know about
+    /* if we have a left partner, send it all data we know about
      * from on rank on to the right */
     if (left_rank != MPI_PROC_NULL) {
       /* issue receive for data from left partner */
@@ -358,7 +358,7 @@ int lwgrp_chain_allgather_brucks_int(
       k++;
     }
 
-    /* if we have a right partner, send him all data we know about
+    /* if we have a right partner, send it all data we know about
      * from on rank on to the left */
     if (right_rank != MPI_PROC_NULL) {
       /* issue receive for data from right partner */
@@ -496,8 +496,8 @@ int lwgrp_chain_allreduce_recursive_pow2(
     if (mask < ranks) {
       int k = 0;
 
-      /* if we have a left partner, send him our left-going data and
-       * recv his right-going data */
+      /* if we have a left partner, send it our left-going data and
+       * recv its right-going data */
       if (left_rank != MPI_PROC_NULL) {
         /* receive right-going data from the left */
         MPI_Irecv(
@@ -507,7 +507,7 @@ int lwgrp_chain_allreduce_recursive_pow2(
         k++;
 
         /* inform rank to our left of the rank on our right, and send
-         * him our data */
+         * it our data */
         MPI_Isend(
           &right_rank, 1, MPI_INT, left_rank,
           LWGRP_MSG_TAG_0, comm, &request[k]
@@ -515,8 +515,8 @@ int lwgrp_chain_allreduce_recursive_pow2(
         k++;
       }
 
-      /* if we have a right partner, send him our right-going data and
-       * recv his left-going data */
+      /* if we have a right partner, send it our right-going data and
+       * recv its left-going data */
       if (right_rank != MPI_PROC_NULL) {
         /* receive left-going data from the right */
         MPI_Irecv(
@@ -526,7 +526,7 @@ int lwgrp_chain_allreduce_recursive_pow2(
         k++;
 
         /* inform rank to our right of the rank on our left, and send
-         * him our data */
+         * it our data */
         MPI_Isend(
           &left_rank, 1, MPI_INT, right_rank,
           LWGRP_MSG_TAG_0, comm, &request[k]
@@ -810,8 +810,8 @@ int lwgrp_chain_exscan_recursive_pow2(
     if (mask < ranks) {
       int k = 0;
 
-      /* if we have a left partner, send him our left-going data and
-       * recv his right-going data */
+      /* if we have a left partner, send it our left-going data and
+       * recv its right-going data */
       if (left_rank != MPI_PROC_NULL) {
         /* receive right-going data from the left */
         MPI_Irecv(
@@ -821,7 +821,7 @@ int lwgrp_chain_exscan_recursive_pow2(
         k++;
 
         /* inform rank to our left of the rank on our right, and send
-         * him our data */
+         * it our data */
         MPI_Isend(
           &right_rank, 1, MPI_INT, left_rank,
           LWGRP_MSG_TAG_0, comm, &request[k]
@@ -829,8 +829,8 @@ int lwgrp_chain_exscan_recursive_pow2(
         k++;
       }
 
-      /* if we have a right partner, send him our right-going data and
-       * recv his left-going data */
+      /* if we have a right partner, send it our right-going data and
+       * recv its left-going data */
       if (right_rank != MPI_PROC_NULL) {
         /* receive left-going data from the right */
         MPI_Irecv(
@@ -840,7 +840,7 @@ int lwgrp_chain_exscan_recursive_pow2(
         k++;
 
         /* inform rank to our right of the rank on our left, and send
-         * him our data */
+         * it our data */
         MPI_Isend(
           &left_rank, 1, MPI_INT, right_rank,
           LWGRP_MSG_TAG_0, comm, &request[k]
@@ -1116,28 +1116,28 @@ int lwgrp_chain_double_exscan_recursive(
     /* first execute the scan portion */
     int k = 0;
 
-    /* if we have a left partner, send him our left-going data and
-     * recv his right-going data */
+    /* if we have a left partner, send it our left-going data and
+     * recv its right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* receive right-going data from the left */
       MPI_Irecv(temprecvleft, count, type, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
       k++;
 
       /* inform rank to our left of the rank on our right, and send
-       * him our data */
+       * it our data */
       MPI_Isend(tempsendleft, count, type, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
       k++;
     }
 
-    /* if we have a right partner, send him our right-going data and
-     * recv his left-going data */
+    /* if we have a right partner, send it our right-going data and
+     * recv its left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* receive left-going data from the right */
       MPI_Irecv(temprecvright, count, type, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
       k++;
 
       /* inform rank to our right of the rank on our left, and send
-       * him our data */
+       * it our data */
       MPI_Isend(tempsendright, count, type, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
       k++;
     }
@@ -1147,7 +1147,7 @@ int lwgrp_chain_double_exscan_recursive(
       MPI_Waitall(k, request, status);
     }
 
-    /* if we have a left partner, merge his data with our result and
+    /* if we have a left partner, merge its data with our result and
      * our right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* reduce data into right-going buffer */
@@ -1162,7 +1162,7 @@ int lwgrp_chain_double_exscan_recursive(
       }
     }
 
-    /* if we have a right partner, merge his data with our left-going data */
+    /* if we have a right partner, merge its data with our left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* reduce data into left-going buffer */
       MPI_Reduce_local(temprecvright, tempsendleft, count, type, op);
@@ -1179,28 +1179,28 @@ int lwgrp_chain_double_exscan_recursive(
     /* now exchange addresses for the next iteration */
     k = 0;
 
-    /* if we have a left partner, send him our left-going data and
-     * recv his right-going data */
+    /* if we have a left partner, send it our left-going data and
+     * recv its right-going data */
     if (left_rank != MPI_PROC_NULL) {
       /* receive right-going data from the left */
       MPI_Irecv(&new_left, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
       k++;
 
       /* inform rank to our left of the rank on our right, and send
-       * him our data */
+       * it our data */
       MPI_Isend(&right_rank, 1, MPI_INT, left_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
       k++;
     }
 
-    /* if we have a right partner, send him our right-going data and
-     * recv his left-going data */
+    /* if we have a right partner, send it our right-going data and
+     * recv its left-going data */
     if (right_rank != MPI_PROC_NULL) {
       /* receive left-going data from the right */
       MPI_Irecv(&new_right, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
       k++;
 
       /* inform rank to our right of the rank on our left, and send
-       * him our data */
+       * it our data */
       MPI_Isend(&left_rank, 1, MPI_INT, right_rank, LWGRP_MSG_TAG_0, comm, &request[k]);
       k++;
     }

@@ -304,8 +304,8 @@ int lwgrp_ring_build_from_chain(
   int left_rank  = chain->comm_left;
   int right_rank = chain->comm_right;
   while (left_rank != MPI_PROC_NULL || right_rank != MPI_PROC_NULL) {
-    /* if we have a left partner, send him our partial result and
-     * our rightmost rank, recv his partial result and his leftmost
+    /* if we have a left partner, send it our partial result and
+     * our rightmost rank, recv its partial result and its leftmost
      * rank */
     int k = 0;
     if (left_rank != MPI_PROC_NULL) {
@@ -317,7 +317,7 @@ int lwgrp_ring_build_from_chain(
       k++;
 
       /* inform rank to our left of the rank on our right, and send
-       * him our partial result */
+       * it our partial result */
       send_left[0] = right_rank;
       MPI_Isend(
         send_left, 2, MPI_INT, left_rank, LWGRP_MSG_TAG_0,
@@ -326,8 +326,8 @@ int lwgrp_ring_build_from_chain(
       k++;
     }
 
-    /* if we have a right partner, send him our partial result and
-     * our leftmost rank, receive his partial result and his rightmost
+    /* if we have a right partner, send it our partial result and
+     * our leftmost rank, receive its partial result and its rightmost
      * rank */
     if (right_rank != MPI_PROC_NULL) {
       /* receive left-going data from the right */
@@ -338,7 +338,7 @@ int lwgrp_ring_build_from_chain(
       k++;
 
       /* inform rank to our right of the rank on our left, and send
-       * him our partial result */
+       * it our partial result */
       send_right[0] = left_rank;
       MPI_Isend(
         send_right, 2, MPI_INT, right_rank, LWGRP_MSG_TAG_0,
@@ -352,7 +352,7 @@ int lwgrp_ring_build_from_chain(
       MPI_Waitall(k, request, status);
     }
 
-    /* if we have a left partner, reduce his data */
+    /* if we have a left partner, reduce its data */
     if (left_rank != MPI_PROC_NULL) {
       /* take the value we receive from the left, and forward it to
        * the right */
@@ -362,7 +362,7 @@ int lwgrp_ring_build_from_chain(
       left_rank = recv_left[0];
     }
 
-    /* if we have a right partner, reduce his data */
+    /* if we have a right partner, reduce its data */
     if (right_rank != MPI_PROC_NULL) {
       /* take the value we receive from the right, and forward it to
        * the left */
@@ -468,8 +468,8 @@ int lwgrp_logchain_build_from_chain(
   while (left_rank != MPI_PROC_NULL || right_rank != MPI_PROC_NULL) {
     int k = 0;
 
-    /* if we have a left partner, send our rightmost rank to him and
-     * receive his leftmost rank */
+    /* if we have a left partner, send our rightmost rank to it and
+     * receive itsleftmost rank */
     if (left_rank != MPI_PROC_NULL) {
       /* record our current left rank in our list */
       list->left_list[list->left_size] = left_rank;
@@ -490,8 +490,8 @@ int lwgrp_logchain_build_from_chain(
       k++;
     }
 
-    /* if we have a right partner, send our leftmost rank to him and
-     * receive his rightmost rank */
+    /* if we have a right partner, send our leftmost rank to it and
+     * receive its rightmost rank */
     if (right_rank != MPI_PROC_NULL) {
       /* record our current right rank in our list */
       list->right_list[list->right_size] = right_rank;

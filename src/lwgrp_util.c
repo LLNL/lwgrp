@@ -85,7 +85,7 @@ int lwgrp_type_dtbuf_free(void** dtbuf_ptr, MPI_Datatype type, const char* file,
       /* OK: user can pass a pointer whose value is NULL, ignore it */
     }
   } else {
-    /* ERROR: user passed in a NULL value as the address of his pointer */
+    /* ERROR: user passed in a NULL value as the address of their pointer */
   }
 
   return LWGRP_SUCCESS;

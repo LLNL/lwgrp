@@ -1077,14 +1077,11 @@ int lwgrp_chain_double_exscan_recursive(
   const lwgrp_chain* group)
 {
   /* TODO: use recursive doubling so all procs do same ops */
-  int i;
 
   /* get chain info */
   MPI_Comm comm  = group->comm;
   int left_rank  = group->comm_left;
   int right_rank = group->comm_right;
-  int rank       = group->group_rank;
-  int ranks      = group->group_size;
 
   /* adjust for lower bounds */
   void* tempsendleft  = lwgrp_type_dtbuf_alloc(count, type, __FILE__, __LINE__);

@@ -13,6 +13,65 @@
 #include "lwgrp.h"
 #include "lwgrp_internal.h"
 
+/* assumes the chain has an exact power of two number of members,
+ * input should be in resultbuf and output will be stored there,
+ * scratchbuf should be scratch space */
+static int lwgrp_logchain_allreduce_recursive_pow2(
+  void* resultbuf,
+  void* scratchbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group,
+  const lwgrp_logchain* list)
+{
+  /* we use a recurisve doubling algorithm */
+  MPI_Status  status[4];
+
+  /* get our rank within comm */
+  MPI_Comm comm = group->comm;
+  int rank      = group->group_rank;
+  int ranks     = group->group_size;
+
+  /* execute recursive doubling operation */
+  int mask = 1;
+  int index = 0;
+  while (mask < ranks) {
+    /* get rank of partner in comm */
+    int partner;
+    int exchange_rank = rank ^ mask;
+    if (exchange_rank < rank) {
+      partner = list->left_list[index];
+    } else {
+      partner = list->right_list[index];
+    }
+
+    /* exchange data with partner */
+    MPI_Sendrecv(
+      resultbuf,  count, type, partner, LWGRP_MSG_TAG_0,
+      scratchbuf, count, type, partner, LWGRP_MSG_TAG_0,
+      comm, status
+    );
+
+    /* reduce data (being careful about non-commutative ops) */
+    if (exchange_rank < rank) {
+      /* higher order data is in resultbuf, so resultbuf = scratchbuf + resultbuf */
+      MPI_Reduce_local(scratchbuf, resultbuf, count, type, op);
+    } else {
+      /* higher order data is in scratchbuf, so scratchbuf = resultbuf + scratchbuf,
+       * then copy result back to resultbuf for sending in next round */
+      MPI_Reduce_local(resultbuf, scratchbuf, count, type, op);
+      lwgrp_type_dtbuf_memcpy(resultbuf, scratchbuf, count, type);
+    }
+
+    /* prepare for next iteration */
+    mask <<= 1;
+    index++;
+  }
+
+  return LWGRP_SUCCESS;
+}
+
 int lwgrp_logchain_allreduce_recursive(
   const void* sendbuf,
   void* recvbuf,
@@ -35,7 +94,6 @@ int lwgrp_logchain_allreduce_recursive(
    * 3) remove rank 1 to form new chain 0 <--> 2 <--> 3 <--> 4
    * 4) recursive double reduction on new chain ((0,2),(3,4))
    * 5) rank 0 sends final result to rank 1 */
-  MPI_Request request[4];
   MPI_Status  status[4];
 
   /* get chain info */
@@ -162,67 +220,6 @@ int lwgrp_logchain_allreduce_recursive(
 
   /* free our scratch space */
   lwgrp_type_dtbuf_free(&tempbuf, type, __FILE__, __LINE__);
-
-  return LWGRP_SUCCESS;
-}
-
-/* assumes the chain has an exact power of two number of members,
- * input should be in resultbuf and output will be stored there,
- * scratchbuf should be scratch space */
-int lwgrp_logchain_allreduce_recursive_pow2(
-  void* resultbuf,
-  void* scratchbuf,
-  int count,
-  MPI_Datatype type,
-  MPI_Op op,
-  const lwgrp_chain* group,
-  const lwgrp_logchain* list)
-{
-  /* we use a recurisve doubling algorithm */
-  MPI_Request request[4];
-  MPI_Status  status[4];
-
-  /* get our rank within comm */
-  MPI_Comm comm = group->comm;
-  int comm_rank = group->comm_rank;
-  int rank      = group->group_rank;
-  int ranks     = group->group_size;
-
-  /* execute recursive doubling operation */
-  int mask = 1;
-  int index = 0;
-  while (mask < ranks) {
-    /* get rank of partner in comm */
-    int partner;
-    int exchange_rank = rank ^ mask;
-    if (exchange_rank < rank) {
-      partner = list->left_list[index];
-    } else {
-      partner = list->right_list[index];
-    }
-
-    /* exchange data with partner */
-    MPI_Sendrecv(
-      resultbuf,  count, type, partner, LWGRP_MSG_TAG_0,
-      scratchbuf, count, type, partner, LWGRP_MSG_TAG_0,
-      comm, status
-    );
-
-    /* reduce data (being careful about non-commutative ops) */
-    if (exchange_rank < rank) {
-      /* higher order data is in resultbuf, so resultbuf = scratchbuf + resultbuf */
-      MPI_Reduce_local(scratchbuf, resultbuf, count, type, op);
-    } else {
-      /* higher order data is in scratchbuf, so scratchbuf = resultbuf + scratchbuf,
-       * then copy result back to resultbuf for sending in next round */
-      MPI_Reduce_local(resultbuf, scratchbuf, count, type, op);
-      lwgrp_type_dtbuf_memcpy(resultbuf, scratchbuf, count, type);
-    }
-
-    /* prepare for next iteration */
-    mask <<= 1;
-    index++;
-  }
 
   return LWGRP_SUCCESS;
 }

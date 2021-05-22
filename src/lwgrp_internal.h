@@ -30,9 +30,21 @@ void* lwgrp_malloc(size_t size, size_t alignment, const char* file, int line);
 void lwgrp_free(void*);
 
 /* find largest power of two that fits within ranks */
-int lwgrp_largest_pow2_log2(int ranks, int* outpow2, int* outlog2);
+int lwgrp_largest_pow2_log2_lte(int ranks, int* outpow2, int* outlog2);
 
 /* find largest power strictly less than ranks */
 int lwgrp_largest_pow2_log2_lessthan(int ranks, int* outpow2, int* outlog2);
+
+/* assumes the chain has an exact power of two number of members,
+ *  * input should be in resultbuf and output will be stored there,
+ *   * scratchbuf should be scratch space */
+int lwgrp_chain_allreduce_recursive_pow2(
+  void* resultbuf,
+  void* scratchbuf,
+  int count,
+  MPI_Datatype type,
+  MPI_Op op,
+  const lwgrp_chain* group
+);
 
 #endif /* _LWGRP_INTERNAL_H */

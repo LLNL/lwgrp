@@ -349,10 +349,14 @@ int lwgrp_logring_allgather_brucks(
   const lwgrp_logring* list /* IN  - list (handle) */
 );
 
-int lwgrp_logring_allgatherv_binomial(
+int lwgrp_logring_allgatherv_brucks(
   const void* sendbuf,      /* IN  - send buffer */
   void* recvbuf,            /* OUT - recive buffer */
-  int num,                  /* IN  - number of elements on each process (non-negative integer) */
+  const int counts[],       /* IN  - non-negative integer array (of length group size) specifying
+                                     the number of elements each processor has */
+  const int displs[],       /* IN  - integer array (of length group size).  Entry i specifies
+                                     the displacement (relative to recvbuf) at which to palce the
+                                     incoming data from process i */
   MPI_Datatype datatype,    /* IN  - element datatype (handle) */
   const lwgrp_ring* group,  /* IN  - group (handle) */
   const lwgrp_logring* list /* IN  - list (handle) */

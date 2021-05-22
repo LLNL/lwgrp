@@ -330,7 +330,6 @@ int lwgrp_ring_alltoallv_linear(
 
   /* get group info */
   MPI_Comm comm = group->comm;
-  int rank      = group->group_rank;
   int ranks     = group->group_size;
 
   /* TODO: since send and recv arrays are O(n), we may
